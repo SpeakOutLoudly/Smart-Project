@@ -1,0 +1,12 @@
+static_library("traffic_demo"){
+    sources = [
+        "led_demo.c",
+        "traffic_led.c"
+    ]
+
+    include_dirs = [
+        "//utils/native/lite/include",
+        "//base/iot_hardware/interfaces/kits/wifiiot_lite",
+        "//kernel/liteos_m/components/cmsis/2.0",
+    ]
+}

@@ -1,0 +1,25 @@
+static_library("Sensor_demo"){
+    sources = [
+        "oled_demo.c",
+        "aht20_demo.c",
+        "oled_ssd1306.c",
+        "aht20.c",
+        "mq2_demo.c",
+        # "//vendor/hisi/hi3861/hi3861/platform/drivers/i2c/i2c.c",
+    ]
+
+    include_dirs = [
+        "//utils/native/lite/include",
+        "//kernel/liteos_m/components/cmsis/2.0",
+        "//base/iot_hardware/interfaces/kits/wifiiot_lite",
+        "//base/iot_hardware/hals/wifiiot_lite",
+        "//vendor/hisi/hi3861/hi3861/platform/drivers/i2c",
+        "//vender/hisi/hi3861/hi3861/include",
+
+    ]
+
+    deps = [
+        "//base/iot_hardware/frameworks/wifiiot_lite:iothardware",
+        "//vendor/hisi/hi3861/hi3861:sdk"
+    ]
+}

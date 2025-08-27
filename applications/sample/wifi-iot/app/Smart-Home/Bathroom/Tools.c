@@ -14,20 +14,21 @@
 
 // 风扇控制函数
 void bathroom_Fan_Control(char *value) {
-    if (value == NULL) {
+    int value_int = atoi(value);
+    if (value_int == 0) {
         printf("bathroom_Fan_Control: value is NULL\n");
         return;
     }
     
     printf("风扇控制命令: %s\n", value);
     
-    if (strcmp(value, "ON") == 0) {
+    if (value_int >= 1) {
         printf("开启浴室风扇\n");
-        bathroom_control_set_fan(1);
+        bathroom_control_set_fan(value_int);
     }
-    else if (strcmp(value, "OFF") == 0) {
+    else if (value_int == 0) {
         printf("关闭浴室风扇\n");
-        bathroom_control_set_fan(0);
+        bathroom_control_set_fan(value_int);
     }
     else {
         printf("bathroom_Fan_Control: 未知值 %s\n", value);

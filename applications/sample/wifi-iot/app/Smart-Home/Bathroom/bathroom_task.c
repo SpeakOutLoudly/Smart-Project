@@ -64,6 +64,7 @@ void bathroom_control_set_fan(int on)
     /* 这里复用一根灯的GPIO作为演示 */
     // int value = on ? WIFI_IOT_GPIO_VALUE1 : WIFI_IOT_GPIO_VALUE0;
     bathroom_fan_state = on ? 1 : 0;
+    fan_level = on;
 }
 
 void bathroom_entry(void *arg){

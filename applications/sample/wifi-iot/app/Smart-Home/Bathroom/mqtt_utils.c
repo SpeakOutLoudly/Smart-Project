@@ -16,6 +16,7 @@
 #include "MQTTPacket.h"
 #include "transport.h"
 #include "bathroom_task.h"
+#include "Tools.h"
 
 int toStop = 0;
 
@@ -156,9 +157,13 @@ int mqtt_connect(void){
             rc = MQTTDeserialize_publish(&dup, &qos, &retained, &msgid, &receivedTopic,
                                        &payload_in, &payloadlen_in, buf, buflen);
             printf("收到控制命令: %.*s\n", payloadlen_in, payload_in);
-            
-            // 这里可以添加设备控制逻辑
-            // 例如：解析命令并控制浴室设备
+
+            // 解析JSON命令并控制浴室设备
+            if (json_parse_and_control(payload_in, (unsigned int)payloadlen_in) == 0) {
+                printf("命令执行成功\n");
+            } else {
+                printf("JSON解析或命令执行失败\n");
+            }
         }
 
         // 发布浴室状态数据
@@ -175,7 +180,6 @@ int mqtt_connect(void){
         rc = transport_sendPacketBuffer(mysock, buf, len);
         
         printf("发布状态: %s\n", payload);
-
         usleep(5000000);  // 5秒发布一次状态
     }
 

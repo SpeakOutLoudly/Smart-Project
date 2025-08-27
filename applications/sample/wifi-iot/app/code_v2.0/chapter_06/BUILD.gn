@@ -5,6 +5,7 @@ static_library("Sensor_demo"){
         "oled_ssd1306.c",
         "aht20.c",
         "mq2_demo.c",
+        
         # "//vendor/hisi/hi3861/hi3861/platform/drivers/i2c/i2c.c",
     ]
 

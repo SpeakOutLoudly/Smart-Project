@@ -22,6 +22,6 @@ lite_component("app") {
         # "code_v2.0/chapter_06:Sensor_demo",
         # "code_v2.0/chapter_10:mqtt_demo",
         # "Smart-Home/Bathroom:Smart_bathroom",
-        "Smart-Home/Bathroom(backup):Smart_bathroom_b",
+        "Smart-Home/Bathroom_backup:Smart_bathroom_b",
     ]
 }

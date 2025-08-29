@@ -15,7 +15,7 @@
 
 #include "MQTTPacket.h"
 #include "transport.h"
-#include "bathroom_task.h"
+#include "colorful_light.h"
 #include "Tools.h"
 
 int toStop = 0;
@@ -170,11 +170,11 @@ int mqtt_connect(void){
         topicString.cstring = "smart_home/bathroom/status";
         
         // 构造状态数据（JSON格式）
+        int colorful_light_state = colorful_light_get_light_status();
+
         snprintf(payload, sizeof(payload), 
-                "{\"occupancy\":%d,\"light_state\":%d,\"fan_state\":%d,\"control_mode\":%d,\"light_sensor\":%d}", 
-                bathroom_get_occupancy_status(), bathroom_get_light_status(), 
-                bathroom_get_fan_status(), bathroom_get_control_mode(), 
-                bathroom_get_light_sensor_status());
+                "{\"colorful_light_state\":%d}", 
+                 colorful_light_state); // 此处需要修改为新的状态查询接口
         payloadlen = strlen(payload);
 
         len = MQTTSerialize_publish(buf, buflen, 0, 0, 0, 0, topicString, 

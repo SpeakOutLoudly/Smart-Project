@@ -7,255 +7,213 @@
 #include "wifiiot_gpio_ex.h"
 #include "wifiiot_pwm.h"
 
-// PWM频率分频常量定义 - 调整为20-25kHz避免啸叫
-#define PWM_FREQ_DIVITION 40000  // 约20kHz (40MHz/40000 = 1kHz base * 20 = 20kHz)
+#include "bathroom_task.h"
+#include <string.h>
+#include <stdlib.h>
 
-// 风扇控制相关常量
-#define FAN_LEVEL_MIN 0
-#define FAN_LEVEL_MAX 3
-#define FAN_PWM_MIN_DUTY 20     // 最小占空比20%，确保风扇能启动
-#define FAN_PWM_MAX_DUTY 95     // 最大占空比95%，留有余量
-#define FAN_SOFT_START_STEPS 10 // 软启动步数
-#define FAN_STARTUP_DELAY_MS 50 // 软启动间隔
+// PWM频率分频常量定义
+#define PWM_FREQ_DIVITION 64000
+// 注意：GPIO_12与蓝色LED冲突，这里使用GPIO_5作为风扇电源控制
+#define FAN_POWER_GPIO WIFI_IOT_IO_NAME_GPIO_5
 
-// GPIO引脚定义
-#define FAN_PWM_GPIO    WIFI_IOT_IO_NAME_GPIO_8   // PWM调速引脚
-#define FAN_POWER_GPIO  WIFI_IOT_IO_NAME_GPIO_5   // 电源控制引脚
+// 系统状态变量
+static int bathroom_occupancy = 0;      // 浴室占用状态 (0: 无人, 1: 有人)
+int bathroom_fan_state = 0;             // 风扇状态 (0: 关闭, 1-3: 档位) - 全局变量
+int bathroom_light_state = 0;           // 灯光状态 (0: 关闭, 1: 开启) - 全局变量
+int bathroom_state = 0;                 // 兼容性变量，映射到bathroom_occupancy
+static int is_dark_environment = 0;     // 环境光线状态 (0: 明亮, 1: 昏暗)
+static int control_mode = 0;            // 控制模式 (0: 自动模式, 1: 手动模式)
 
-int bathroom_state = 0;
-int bathroom_fan_state = 0;
-int bathroom_light_state = 0;
-int bathroom_light_control = 0;
-int fan_level = 0;              // 默认关闭
-int fan_target_level = 0;       // 目标级别
-int fan_current_duty = 0;       // 当前占空比
-int fan_error_count = 0;        // 错误计数器
 
-void bathroom_init(void *arg){
+void Light_init(void *arg){
     (void)arg;
-    GpioInit();
-
-    //设置 红绿蓝 LED IO为输出 (GPIO10, GPIO11, GPIO12)
+    // 设置 RGB LED IO为输出模式
     IoSetFunc(WIFI_IOT_IO_NAME_GPIO_10, WIFI_IOT_IO_FUNC_GPIO_10_GPIO);
     GpioSetDir(WIFI_IOT_IO_NAME_GPIO_10, WIFI_IOT_GPIO_DIR_OUT);
 
     IoSetFunc(WIFI_IOT_IO_NAME_GPIO_11, WIFI_IOT_IO_FUNC_GPIO_11_GPIO);
     GpioSetDir(WIFI_IOT_IO_NAME_GPIO_11, WIFI_IOT_GPIO_DIR_OUT);
 
-    IoSetFunc(WIFI_IOT_IO_NAME_GPIO_12, WIFI_IOT_IO_FUNC_GPIO_12_GPIO);
+    IoSetFunc(WIFI_IOT_IO_NAME_GPIO_12, WIFI_IOT_IO_FUNC_GPIO_12_GPIO); 
     GpioSetDir(WIFI_IOT_IO_NAME_GPIO_12, WIFI_IOT_GPIO_DIR_OUT);
     
-    //光敏电阻
-    IoSetFunc(WIFI_IOT_IO_NAME_GPIO_9, WIFI_IOT_IO_FUNC_GPIO_9_GPIO);
-    GpioSetDir(WIFI_IOT_IO_NAME_GPIO_9, WIFI_IOT_GPIO_DIR_IN);
-    
-    //人体红外感应
-    IoSetFunc(WIFI_IOT_IO_NAME_GPIO_7, WIFI_IOT_IO_FUNC_GPIO_7_GPIO);
-    GpioSetDir(WIFI_IOT_IO_NAME_GPIO_7, WIFI_IOT_GPIO_DIR_IN);
-    IoSetPull(WIFI_IOT_IO_NAME_GPIO_7, WIFI_IOT_IO_PULL_UP);
+    // 初始状态关闭灯光
+    GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_10, WIFI_IOT_GPIO_VALUE0);
+    GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_11, WIFI_IOT_GPIO_VALUE0);
+    GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_12, WIFI_IOT_GPIO_VALUE0);
+}
 
-    // 风扇控制系统初始化
-    // GPIO8: PWM调速输出
-    IoSetFunc(FAN_PWM_GPIO, WIFI_IOT_IO_FUNC_GPIO_8_PWM1_OUT);
+// 灯光硬件控制函数
+static void bathroom_set_light_hardware(int on)
+{
+    WifiIotGpioValue value = on ? WIFI_IOT_GPIO_VALUE1 : WIFI_IOT_GPIO_VALUE0;
+    GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_10, value);  // 红色LED
+    GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_11, value);  // 绿色LED
+    GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_12, value);  // 蓝色LED
+    bathroom_light_state = on ? 1 : 0;
+    printf("[Bathroom] Light %s\n", on ? "ON" : "OFF");
+}
+
+void Fan_init(void *arg){
+    (void)arg;
+    // 初始化PWM引脚用于风扇调速
+    IoSetFunc(WIFI_IOT_IO_NAME_GPIO_8, WIFI_IOT_IO_FUNC_GPIO_8_PWM1_OUT);
     PwmInit(WIFI_IOT_PWM_PORT_PWM1);
     
-    // GPIO5: 风扇电源控制输出
+    // 初始化风扇电源控制引脚
     IoSetFunc(FAN_POWER_GPIO, WIFI_IOT_IO_FUNC_GPIO_5_GPIO);
     GpioSetDir(FAN_POWER_GPIO, WIFI_IOT_GPIO_DIR_OUT);
     
-    // 初始化时确保风扇完全关闭
-    PwmStop(WIFI_IOT_PWM_PORT_PWM1);
-    GpioSetOutputVal(FAN_POWER_GPIO, WIFI_IOT_GPIO_VALUE0); // 关闭电源
-    
-    printf("风扇控制系统初始化完成: GPIO5(电源) + GPIO8(PWM)\n");
-
+    // 初始状态关闭风扇
+    GpioSetOutputVal(FAN_POWER_GPIO, WIFI_IOT_GPIO_VALUE0);
 }
 
-void bathroom_control_set_light(int on)
+// 风扇硬件控制函数
+static void bathroom_set_fan_hardware(int level)
 {
-    int value = on ? WIFI_IOT_GPIO_VALUE1 : WIFI_IOT_GPIO_VALUE0;
-    GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_10, value);
-    GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_11, value);
-    GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_12, value); // 现在GPIO12可以正常用于RGB LED
-    bathroom_light_control = on ? 1 : 0;
-    bathroom_light_state = on ? 1 : 0;
-}
-
-/*
- * 风扇电源控制函数
- * power_on: 1=开启电源, 0=关闭电源
- */
-void fan_power_control(int power_on) {
-    WifiIotGpioValue gpio_value = power_on ? WIFI_IOT_GPIO_VALUE1 : WIFI_IOT_GPIO_VALUE0;
-    GpioSetOutputVal(FAN_POWER_GPIO, gpio_value);
+    bathroom_fan_state = level;
     
-    printf("风扇电源控制: %s\n", power_on ? "开启" : "关闭");
-    
-    if (!power_on) {
-        // 关闭电源时，确保PWM也停止
-        PwmStop(WIFI_IOT_PWM_PORT_PWM1);
-        fan_current_duty = 0;
-    }
-}
-
-/*
- * 风扇PWM调速控制函数
- * level: 0=关闭, 1-3=不同速度级别
- */
-void fan_speed_control(int level) {
-    if (level <= 0) {
-        // 停止PWM输出
-        PwmStop(WIFI_IOT_PWM_PORT_PWM1);
-        fan_current_duty = 0;
-        printf("风扇PWM停止\n");
-        return;
-    }
-    
-    // 限制级别范围
-    if (level > FAN_LEVEL_MAX) {
-        level = FAN_LEVEL_MAX;
-    }
-    
-    // 计算PWM占空比: level 1-3 -> 30%-90%占空比
-    unsigned short duty_cycle = PWM_FREQ_DIVITION * level * 30 / 100;
-    
-    // 启动PWM，频率约20kHz，避免啸叫
-    PwmStart(WIFI_IOT_PWM_PORT_PWM1, duty_cycle, PWM_FREQ_DIVITION);
-    fan_current_duty = duty_cycle;
-    
-    printf("风扇PWM设置: 级别%d, 占空比%d%%\n", level, level * 30);
-}
-
-void bathroom_control_set_fan(int level)
-{
-    /*
-     * 风扇控制函数
-     * level: 0=关闭, 1-3=不同速度级别
-     * 
-     * 硬件连接:
-     * - 风扇电源: GPIO5控制 (可通过软件开关)
-     * - 调速信号: GPIO8 PWM输出 -> 风扇PWM输入
-     * - 工作模式: 电源控制 + PWM调速双重控制
-     * 
-     * 控制逻辑:
-     * 1. level = 0: 关闭电源 + 停止PWM
-     * 2. level > 0: 开启电源 + 设置PWM占空比
-     */
-    
-    // 参数验证
-    if (level < FAN_LEVEL_MIN || level > FAN_LEVEL_MAX) {
-        printf("错误: 风扇级别超出范围 (0-3): %d\n", level);
-        fan_error_count++;
-        return;
-    }
-    
-    bathroom_fan_state = (level > 0) ? 1 : 0;
-    fan_level = level;
-    
-    if (level == 0) {
-        // 关闭风扇：先停止PWM，再关闭电源
-        fan_speed_control(0);
-        usleep(10000); // 延时10ms确保PWM停止
-        fan_power_control(0);
-        fan_error_count = 0; // 重置错误计数
-        printf("风扇完全关闭\n");
+    if (level > 0 && level <= 3) {
+        // 启动风扇
+        GpioSetOutputVal(FAN_POWER_GPIO, WIFI_IOT_GPIO_VALUE1);
+        // PWM控制风扇转速 (level 1-3 对应不同转速)
+        PwmStart(WIFI_IOT_PWM_PORT_PWM1, 
+                PWM_FREQ_DIVITION / 10 * (level + 7), 
+                PWM_FREQ_DIVITION);
+        printf("[Bathroom] Fan ON - Level %d\n", level);
     } else {
-        // 开启风扇：先开启电源，再设置PWM
-        fan_power_control(1);
-        usleep(50000); // 延时50ms让电源稳定
-        fan_speed_control(level);
-        printf("风扇启动: 级别%d (占空比%d%%)\n", level, level * 30);
+        // 关闭风扇
+        GpioSetOutputVal(FAN_POWER_GPIO, WIFI_IOT_GPIO_VALUE0);
+        PwmStop(WIFI_IOT_PWM_PORT_PWM1);
+        printf("[Bathroom] Fan OFF\n");
     }
 }
 
-/*
- * 风扇紧急停止函数
- * 立即停止风扇运行，用于异常情况
- */
-void fan_emergency_stop(void) {
-    printf("风扇紧急停止!\n");
-    
-    // 立即停止PWM和电源
-    PwmStop(WIFI_IOT_PWM_PORT_PWM1);
-    fan_power_control(0);
-    
-    // 重置所有状态
-    fan_level = 0;
-    fan_target_level = 0;
-    fan_current_duty = 0;
-    bathroom_fan_state = 0;
-    fan_error_count = 0;
+void Photoresistor_init(void *arg){
+    (void)arg;
+    // 初始化光敏电阻传感器
+    IoSetFunc(WIFI_IOT_IO_NAME_GPIO_9, WIFI_IOT_IO_FUNC_GPIO_9_GPIO);
+    GpioSetDir(WIFI_IOT_IO_NAME_GPIO_9, WIFI_IOT_GPIO_DIR_IN);
 }
 
-/*
- * 获取风扇状态信息
- * 返回格式化的状态字符串
- */
-void get_fan_status_info(char *status_buffer, int buffer_size) {
-    // 简化的占空比计算
-    int duty_percent = (fan_level > 0) ? (fan_level * 30) : 0;
+void Infrared_sensor_init(void *arg){
+    (void)arg;
+    // 初始化人体红外传感器
+    IoSetFunc(WIFI_IOT_IO_NAME_GPIO_7, WIFI_IOT_IO_FUNC_GPIO_7_GPIO);
+    GpioSetDir(WIFI_IOT_IO_NAME_GPIO_7, WIFI_IOT_GPIO_DIR_IN);
+    IoSetPull(WIFI_IOT_IO_NAME_GPIO_7, WIFI_IOT_IO_PULL_UP);
+}
+
+void bathroom_init(void *arg){
+    (void)arg;
+    GpioInit();
+
+    Light_init(NULL);
+    Photoresistor_init(NULL);
+    Infrared_sensor_init(NULL);
+    Fan_init(NULL);
     
-    snprintf(status_buffer, buffer_size,
-             "Fan[Level:%d,Duty:%d%%,State:%s,Errors:%d]",
-             fan_level,
-             duty_percent,
-             bathroom_fan_state ? "ON" : "OFF",
-             fan_error_count);
+    printf("[Bathroom] Initialization completed\n");
+}
+
+// 传感器读取函数
+static int bathroom_read_occupancy_sensor(void)
+{
+    WifiIotGpioValue value = WIFI_IOT_GPIO_VALUE0;
+    if (GpioGetInputVal(WIFI_IOT_IO_NAME_GPIO_7, &value) == 0) {
+        return (int)value;
+    }
+    return 0; // 默认无人
+}
+
+static int bathroom_read_light_sensor(void)
+{
+    WifiIotGpioValue value = WIFI_IOT_GPIO_VALUE0;
+    if (GpioGetInputVal(WIFI_IOT_IO_NAME_GPIO_9, &value) == 0) {
+        // 光敏电阻：0=昏暗(需要开灯), 1=明亮(不需要开灯)
+        return (value == WIFI_IOT_GPIO_VALUE0) ? 1 : 0; // 返回1表示昏暗
+    }
+    return 0; // 默认明亮
+}
+
+// 智能灯光控制函数
+static void bathroom_smart_light_control(void)
+{
+    int should_turn_on = 0;
+    
+    if (bathroom_occupancy == 1) {
+        // 有人时，根据光线决定是否开灯
+        should_turn_on = is_dark_environment;
+    } else {
+        // 无人时，关闭灯光
+        should_turn_on = 0;
+    }
+    
+    if (should_turn_on != bathroom_light_state) {
+        bathroom_set_light_hardware(should_turn_on);
+    }
+}
+
+// 智能风扇控制函数
+static void bathroom_smart_fan_control(void)
+{
+    int target_level = 0;
+    
+    if (bathroom_occupancy == 1) {
+        // 有人时，根据情况启动风扇
+        if (is_dark_environment) {
+            target_level = 1; // 晚上低速风扇
+        } else {
+            target_level = 2; // 白天中速风扇
+        }
+    } else {
+        // 无人时，延迟一段时间后关闭风扇（简化处理，直接关闭）
+        target_level = 0;
+    }
+    
+    if (target_level != bathroom_fan_state) {
+        bathroom_set_fan_hardware(target_level);
+    }
 }
 
 void bathroom_entry(void *arg){
     (void)arg;
 
     bathroom_init(NULL);
-    WifiIotGpioValue rel = 0;
-    while(1){
+    
+    printf("[Bathroom] Smart bathroom system started in AUTO mode\n");
+    
+    while(1) {
+        // 始终读取传感器数据（供状态查询）
+        bathroom_occupancy = bathroom_read_occupancy_sensor();
+        is_dark_environment = bathroom_read_light_sensor();
         
-        //读取人体红外传感器
-        GpioGetInputVal(WIFI_IOT_IO_NAME_GPIO_7, &rel);
-        bathroom_state = rel;
+        // 根据控制模式执行不同逻辑
+        if (control_mode == 0) {
+            // 自动模式：基于传感器的智能控制
+            bathroom_smart_light_control();
+            bathroom_smart_fan_control();
+        }
+        // 手动模式：不执行自动控制，等待远程指令
         
-        //读取光敏电阻
-        GpioGetInputVal(WIFI_IOT_IO_NAME_GPIO_9, &rel);
-
-        //如果有人
-        if (bathroom_state) {
-            GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_10, (int)rel);
-            GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_11, (int)rel);
-            GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_12, (int)rel);
-            bathroom_light_state = rel;
-        } else {
-            if(bathroom_light_control == 1){
-                GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_10, (int)rel);
-                GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_11, (int)rel);
-                GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_12, (int)rel);
-                bathroom_light_state = rel;
-            } else {
-                GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_10, WIFI_IOT_GPIO_VALUE0);
-                GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_11, WIFI_IOT_GPIO_VALUE0);
-                GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_12, WIFI_IOT_GPIO_VALUE0);
-                bathroom_light_state = 0;
-            }
+        // 输出状态信息(可选)
+        static int debug_counter = 0;
+        if (++debug_counter >= 10) { // 每10秒输出一次状态
+            printf("[Bathroom] Mode:%s, Occupancy:%d, Dark:%d, Light:%d, Fan:%d\n", 
+                   control_mode == 0 ? "AUTO" : "MANUAL",
+                   bathroom_occupancy, is_dark_environment, 
+                   bathroom_light_state, bathroom_fan_state);
+            debug_counter = 0;
         }
         
-        // 风扇PWM控制模块 - 使用MOSFET控制
-        if (fan_level > 0 && fan_level <= 3 && bathroom_fan_state == 1){
-            // 计算PWM占空比: level 1-3 对应不同的占空比
-            // level 1: 30% 占空比, level 2: 60%, level 3: 90%
-            unsigned short duty_cycle = PWM_FREQ_DIVITION * fan_level * 30 / 100;
-            
-            // 启动PWM，频率约20kHz，避免啸叫
-            PwmStart(WIFI_IOT_PWM_PORT_PWM1, duty_cycle, PWM_FREQ_DIVITION);
-        } else {
-            // 关闭风扇
-            PwmStop(WIFI_IOT_PWM_PORT_PWM1);
-        }
-        
-        sleep(1);
+        sleep(1); // 1秒检测一次
     }
 }
 
+// 浴室智能控制系统任务创建函数
 void bathroom_task(void){
     osThreadAttr_t attr;
+    
     attr.name = "bathroom_task";
     attr.attr_bits = 0U;
     attr.cb_mem = NULL;
@@ -263,7 +221,214 @@ void bathroom_task(void){
     attr.stack_mem = NULL;
     attr.stack_size = 4096;
     attr.priority = osPriorityNormal;
+    
     if(osThreadNew(bathroom_entry, NULL, &attr) == NULL){
         printf("[bathroom_task] Failed to create bathroom_task!\r\n");
+    } else {
+        printf("[bathroom_task] Successfully created bathroom_task!\r\n");
     }
+}
+
+// ==================== 公开接口函数 ====================
+
+// 状态查询接口
+int bathroom_get_occupancy_status(void)
+{
+    return bathroom_occupancy;
+}
+
+int bathroom_get_light_status(void)
+{
+    return bathroom_light_state;
+}
+
+int bathroom_get_fan_status(void)
+{
+    return bathroom_fan_state;
+}
+
+int bathroom_get_light_sensor_status(void)
+{
+    return is_dark_environment;
+}
+
+int bathroom_get_control_mode(void)
+{
+    return control_mode;
+}
+
+// 模式控制接口
+int bathroom_set_control_mode(int mode)
+{
+    if (mode < 0 || mode > 1) {
+        printf("[Bathroom] Invalid control mode: %d\n", mode);
+        return -1;
+    }
+    
+    control_mode = mode;
+    printf("[Bathroom] Control mode changed to: %s\n", 
+           mode == 0 ? "AUTO" : "MANUAL");
+    return 0;
+}
+
+// 模式控制（字符串版）：对外导出，供Tools/mqtt调用
+void bathroom_Mode_Control(char *value)
+{
+    if (value == NULL) {
+        printf("bathroom_Mode_Control: value is NULL\n");
+        return;
+    }
+
+    printf("模式控制命令: %s\n", value);
+
+    int mode = -1;
+
+    if (strcmp(value, "AUTO") == 0 || strcmp(value, "auto") == 0 || strcmp(value, "0") == 0) {
+        mode = 0;
+    } else if (strcmp(value, "MANUAL") == 0 || strcmp(value, "manual") == 0 || strcmp(value, "1") == 0) {
+        mode = 1;
+    } else {
+        printf("bathroom_Mode_Control: 未知模式 %s（支持: AUTO/MANUAL/auto/manual/0/1）\n", value);
+        return;
+    }
+
+    if (bathroom_set_control_mode(mode) == 0) {
+        printf("浴室模式切换成功: %s\n", mode == 0 ? "自动模式" : "手动模式");
+    } else {
+        printf("浴室模式切换失败\n");
+    }
+}
+
+// 远程控制接口
+int bathroom_remote_control_light(int on)
+{
+    if (control_mode != 1) {
+        printf("[Bathroom] Remote light control failed: not in manual mode\n");
+        return -1;
+    }
+    
+    bathroom_set_light_hardware(on);
+    printf("[Bathroom] Remote light control: %s\n", on ? "ON" : "OFF");
+    return 0;
+}
+
+int bathroom_remote_control_fan(int level)
+{
+    if (control_mode != 1) {
+        printf("[Bathroom] Remote fan control failed: not in manual mode\n");
+        return -1;
+    }
+    
+    if (level < 0 || level > 3) {
+        printf("[Bathroom] Invalid fan level: %d\n", level);
+        return -1;
+    }
+    
+    bathroom_set_fan_hardware(level);
+    printf("[Bathroom] Remote fan control: Level %d\n", level);
+    return 0;
+}
+
+/*
+ * 硬件控制主函数
+ * 根据target选择相应的处理函数，并传入value
+ */
+void hardware_control(char *target, char *value) {
+    if (target == NULL || value == NULL) {
+        printf("hardware_control: target或value为NULL\n");
+        return;
+    }
+
+    printf("执行硬件控制 - 目标: %s, 值: %s\n", target, value);
+
+    // 使用字符串比较来判断目标设备类型
+    if (strcmp(target, "FAN") == 0) {
+        bathroom_Fan_Control(value);
+    }
+    else if (strcmp(target, "LIGHT") == 0) {
+        bathroom_Light_Control(value);
+    }
+    else if (strcmp(target, "MODE") == 0) {
+        bathroom_Mode_Control(value);
+    }
+    else if (strcmp(target, "STATUS") == 0) {
+        Status_Query();
+    }
+    else {
+        printf("hardware_control: 未知目标设备 %s（支持: FAN/LIGHT/MODE/STATUS）\n", target);
+    }
+}
+
+// 风扇控制函数
+void bathroom_Fan_Control(char *value) {
+    if (value == NULL) {
+        printf("bathroom_Fan_Control: value is NULL\n");
+        return;
+    }
+    
+    printf("风扇控制命令: %s\n", value);
+    
+    int value_int = atoi(value);
+    
+    // 检查参数有效性
+    if (value_int < 0 || value_int > 3) {
+        printf("bathroom_Fan_Control: 无效的风扇级别 %d（应为0-3）\n", value_int);
+        return;
+    }
+    
+    // 优先使用新接口，如果失败则使用兼容接口
+    if (bathroom_remote_control_fan(value_int) != 0) {
+        printf("远程控制失败，使用兼容模式（自动切换到手动模式）\n");
+        bathroom_set_control_mode(1);  // 切换到手动模式
+        bathroom_set_fan_hardware(value_int);
+    }
+    
+    if (value_int >= 1) {
+        printf("开启浴室风扇，级别: %d\n", value_int);
+    } else {
+        printf("关闭浴室风扇\n");
+    }
+}
+
+// 灯光控制函数
+void bathroom_Light_Control(char *value) {
+    if (value == NULL) {
+        printf("bathroom_Light_Control: value is NULL\n");
+        return;
+    }
+    
+    printf("灯光控制命令: %s\n", value);
+    
+    int light_on = -1;
+    
+    if (strcmp(value, "ON") == 0 || strcmp(value, "on") == 0 || strcmp(value, "1") == 0) {
+        light_on = 1;
+    }
+    else if (strcmp(value, "OFF") == 0 || strcmp(value, "off") == 0 || strcmp(value, "0") == 0) {
+        light_on = 0;
+    }
+    else {
+        printf("bathroom_Light_Control: 未知值 %s（支持: ON/OFF/on/off/1/0）\n", value);
+        return;
+    }
+    
+    // 优先使用新接口，如果失败则使用兼容接口
+    if (bathroom_remote_control_light(light_on) != 0) {
+        printf("远程控制失败，使用兼容模式（自动切换到手动模式）\n");
+        bathroom_set_control_mode(1);  // 切换到手动模式
+        bathroom_set_light_hardware(light_on);
+    }
+    
+    printf("%s浴室灯光\n", light_on ? "开启" : "关闭");
+}
+
+// 状态查询函数
+void Status_Query(void) {
+    printf("=== 浴室系统状态 ===\n");
+    printf("控制模式: %s\n", bathroom_get_control_mode() == 0 ? "自动" : "手动");
+    printf("人员占用: %s\n", bathroom_get_occupancy_status() ? "有人" : "无人");
+    printf("环境光线: %s\n", bathroom_get_light_sensor_status() ? "昏暗" : "明亮");
+    printf("灯光状态: %s\n", bathroom_get_light_status() ? "开启" : "关闭");
+    printf("风扇状态: 档位 %d\n", bathroom_get_fan_status());
+    printf("==================\n");
 }

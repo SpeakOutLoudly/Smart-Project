@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Huawei Device Co., Ltd.
+# Copyright (c) 2021 Chinasoft International Co., Ltd.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -11,17 +11,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import("//build/lite/config/component/lite_component.gni")
+static_library("nfc") {
+    sources = [
+        "app_demo_nfc.c",
+    ]
 
-lite_component("app") {
-    features = [
-        # "startup:hello",
-        # "code_v2.0/chapter_04:traffic_demo",
-        "code_v2.0/chapter_05:ColorfulLight_Demo",
-        # "code_v2.0/chapter_08:wifi_demo",
-        # "code_v2.0/chapter_06:Sensor_demo",
-        # "code_v2.0/chapter_10:mqtt_demo",
-        # "Smart-Home/Bathroom:Smart_bathroom",
-        # "Smart-Home/Bathroom_backup:Smart_bathroom_b",
+    include_dirs = [
+        "//utils/native/lite/include",
+        "//kernel/liteos_m/components/cmsis/2.0",
+        "//base/iot_hardware/peripheral/interfaces/kits",
     ]
 }

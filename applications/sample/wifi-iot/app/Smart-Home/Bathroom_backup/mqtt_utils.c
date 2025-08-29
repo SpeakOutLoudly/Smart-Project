@@ -170,9 +170,12 @@ int mqtt_connect(void){
         topicString.cstring = "smart_home/bathroom/status";
         
         // 构造状态数据（JSON格式）
+        int bathroom_state = bathroom_get_occupancy_status();
+        int bathroom_light_state = bathroom_get_light_status();
+        int bathroom_fan_state = bathroom_get_fan_status();
         snprintf(payload, sizeof(payload), 
                 "{\"bathroom_state\":%d,\"bathroom_light_state\":%d,\"bathroom_fan_state\":%d}", 
-                bathroom_state, bathroom_light_state, bathroom_fan_state);
+                bathroom_state, bathroom_light_state, bathroom_fan_state); // 此处需要修改为新的状态查询接口
         payloadlen = strlen(payload);
 
         len = MQTTSerialize_publish(buf, buflen, 0, 0, 0, 0, topicString, 

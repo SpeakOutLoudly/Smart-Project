@@ -18,7 +18,7 @@ static void main_entry(void *arg){
     sleep(2);
     printf("Smart Home BathroomPart Running...\r\n");
 
-    bathroom_task();
+    Main_Task();
     publish_task();
 
 }

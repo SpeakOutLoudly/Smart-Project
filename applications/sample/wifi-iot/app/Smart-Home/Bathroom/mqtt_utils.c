@@ -168,13 +168,16 @@ int mqtt_connect(void){
 
         // 发布浴室状态数据
         topicString.cstring = "smart_home/bathroom/status";
-        
         // 构造状态数据（JSON格式）
+
+        int bathroom_state = Query_Room_Status();
+        int bathroom_light_state = Query_Light_Status();
+        int bathroom_fan_state = Query_Fan_Status();
+        int fan_level = Query_Fan_Level();
+
         snprintf(payload, sizeof(payload), 
-                "{\"occupancy\":%d,\"light_state\":%d,\"fan_state\":%d,\"control_mode\":%d,\"light_sensor\":%d}", 
-                bathroom_get_occupancy_status(), bathroom_get_light_status(), 
-                bathroom_get_fan_status(), bathroom_get_control_mode(), 
-                bathroom_get_light_sensor_status());
+                "{\"bathroom_state\":%d,\"bathroom_light_state\":%d,\"bathroom_fan_state\":%d,\"fan_level\":%d}", 
+                bathroom_state, bathroom_light_state, bathroom_fan_state, fan_level);
         payloadlen = strlen(payload);
 
         len = MQTTSerialize_publish(buf, buflen, 0, 0, 0, 0, topicString, 

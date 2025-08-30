@@ -23,11 +23,15 @@
 #define PWM_FREQ_DIVITION 64000
 #define ADC_RESOLUTION 4096  // 12位ADC分辨率 (2^12 = 4096)
 
-static int colorful_light_state = 0;
-static int colorful_light_control_status = 0;
-static int fan_state = 0;
-static int fan_control_status = 0;
-static int fan_level = 0;   
+static int Query_colorful_light_state = 0;
+
+//static int Query_fan_state = 0;
+
+static int Control_Status_Light = 0;
+static char *Control_Value_Light = "OFF";
+
+static int Control_Status_Fan = 0;
+static char *Control_Value_Fan = "0";
 
 static void InitLightGPIO(void){
     GpioInit();
@@ -43,13 +47,12 @@ static void InitLightGPIO(void){
 }
 
 int colorful_light_get_light_status(void){
-    return colorful_light_state;
+    return Query_colorful_light_state;
 }
 
 static void colorful_light_control(char *value){
     if(strcmp(value, "ON") == 0){
-        colorful_light_state = 1;
-        colorful_light_control_status = 1;
+        Query_colorful_light_state = 1;
         printf("colorful_light_control: ON\n");
         PwmStart(WIFI_IOT_PWM_PORT_PWM1, PWM_DUTY, PWM_FREQ_DIVITION);
         PwmStart(WIFI_IOT_PWM_PORT_PWM2, PWM_DUTY, PWM_FREQ_DIVITION);
@@ -59,11 +62,11 @@ static void colorful_light_control(char *value){
         PwmStop(WIFI_IOT_PWM_PORT_PWM1);
         PwmStop(WIFI_IOT_PWM_PORT_PWM2);
         PwmStop(WIFI_IOT_PWM_PORT_PWM3);
-        colorful_light_state = 0;
-        colorful_light_control_status = 0;
+        Query_colorful_light_state = 0;
+        Control_Status_Light = 0;
     }
 }
-
+/*
 static void fan_init(void){
 
     // 初始化PWM引脚用于风扇调速
@@ -81,7 +84,7 @@ static void fan_init(void){
 
 static void fan_hardware(int level)
 {
-    fan_state = level;
+    Query_fan_state = level;
     
     if (level > 0 && level <= 3) {
         // 启动风扇
@@ -98,57 +101,51 @@ static void fan_hardware(int level)
         printf("[Bathroom] Fan OFF\n");
     }
 }
-
+*/
 void hardware_control(char *target, char *value){
     if(strcmp(target, "LIGHT") == 0 ){
-        colorful_light_control(value);
+        printf("主函数匹配成功，Control_Status_Light 设置为1\n");
+        Control_Status_Light = 1;
+        Control_Value_Light = value;
     }else if(strcmp(target, "FAN") == 0){
-        fan_hardware(value);
+        Control_Status_Fan = 1;
+        Control_Value_Fan = value;
+    }else if(strcmp(target, "STATUS") == 0){
+        Status_Query();
     }
 }
 
 
 void Status_Query(void) {
     printf("执行状态查询\n");
-    printf("colorful_light_state: %d\n", colorful_light_get_light_status());
+    printf("Query_colorful_light_state: %d\n", colorful_light_get_light_status());
     // 这里可以添加具体的状态查询逻辑
 }
 
-static void ColorfulLightTask(void *arg){
+static void Main_Task(void *arg){
     (void)arg;
     InitLightGPIO();
-
+    
     while(1){
-        if(colorful_light_control_status !=1){
-            for (int i = 1; i <= PWM_DUTY; i *= 2)
-                {
-                    PwmStart(WIFI_IOT_PWM_PORT_PWM1, i, PWM_FREQ_DIVITION);
-                    usleep(250000);
-                    PwmStop(WIFI_IOT_PWM_PORT_PWM1);
-                }
-                for (int i = 1; i <= ADC_RESOLUTION; i *= 2)
-                {
-                    PwmStart(WIFI_IOT_PWM_PORT_PWM2, i, PWM_FREQ_DIVITION);
-                    usleep(250000);
-                    PwmStop(WIFI_IOT_PWM_PORT_PWM2);
-                }
-                for (int i = 1; i <= ADC_RESOLUTION; i *= 2)
-                {
-                    PwmStart(WIFI_IOT_PWM_PORT_PWM3, i, PWM_FREQ_DIVITION);
-                    usleep(250000);
-                    PwmStop(WIFI_IOT_PWM_PORT_PWM3);
-            }
+        if(Control_Status_Light == 1){
+            colorful_light_control(Control_Value_Light);
+            printf("进入手动模式\n");
+        } else {
+            // 启动三个灯同时常亮
+            PwmStart(WIFI_IOT_PWM_PORT_PWM1, PWM_DUTY, PWM_FREQ_DIVITION); // 红灯全亮
+            PwmStart(WIFI_IOT_PWM_PORT_PWM2, PWM_DUTY, PWM_FREQ_DIVITION); // 绿灯全亮
+            PwmStart(WIFI_IOT_PWM_PORT_PWM3, PWM_DUTY, PWM_FREQ_DIVITION); // 蓝灯全亮
+            
+            printf("三个RGB灯已开启常亮模式\n");
         }
-        if(fan_control_status == 1){
-            fan_init();
-            fan_hardware(fan_level);
-        }
+        // 延时避免CPU占用过高
+        usleep(1000000); // 1秒延时
     }
 }
 
 void ColorfulLightDemo(void){
     osThreadAttr_t attr;
-    attr.name = "ColorfulLightTask";
+    attr.name = "Main_Task";
     attr.attr_bits = 0U;
     attr.cb_mem = NULL;
     attr.cb_size = 0U;
@@ -156,8 +153,8 @@ void ColorfulLightDemo(void){
     attr.stack_size = 4096;
     attr.stack_mem = NULL;
 
-    if(osThreadNew(ColorfulLightTask, NULL, &attr) == NULL){
-        printf("[ColorfulLightDemo] Failed to create ColorfulLightTask!\n");
+    if(osThreadNew(Main_Task, NULL, &attr) == NULL){
+        printf("[ColorfulLightDemo] Failed to create Main_Task!\n");
     }
 }
 

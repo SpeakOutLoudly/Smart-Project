@@ -1,0 +1,38 @@
+static_library("Smart_livingroom"){
+    sources = [
+        "main.c",
+        "livingroon_task.c",
+        "mqtt_utils.c",
+        "wifi_utils.c",
+        "publish_task.c",
+        "Tools.c",
+        "oled_task.c",
+        "oled_ssd1306.c",
+        "aht20.c",
+        "//vendor/hisi/hi3861/hi3861/platform/drivers/pwm/hi_pwm.c",
+        # "//vendor/hisi/hi3861/hi3861/platform/drivers/i2c/i2c.c",
+    ]
+
+    include_dirs = [
+        "//utils/native/lite/include",
+        "//kernel/liteos_m/components/cmsis/2.0",
+        "//base/iot_hardware/interfaces/kits/wifiiot_lite",
+        "//vender/hisi/hi3861/hi3861/third_part/lwip_sack/include",
+        "//foundation/communication/interfaces/kits/wifi_lite/wifiservice",
+        "//third_party/pahomqtt/MQTTPacket/src",
+        "//third_party/pahomqtt/MQTTPacket/samples",
+        "//third_party/lwip/src/include",
+        "//third_party/lwip/test/fuzz",
+        "//vendor/hisi/hi3861/hi3861/platform/drivers/pwm",
+        "//vendor/hisi/hi3861/hi3861/third_party/lwip_sack/include",
+        "//vendor/hisi/hi3861/hi3861/platform/drivers/i2c",
+        "//vender/hisi/hi3861/hi3861/include",
+        # "//vendor/hisi/hi3861/hi3861/components/at/src"
+    ]
+
+    deps = [
+        "//base/iot_hardware/frameworks/wifiiot_lite:iothardware",
+        "//vendor/hisi/hi3861/hi3861:sdk",
+        "//third_party/cJSON:cjson_static"
+    ]
+}

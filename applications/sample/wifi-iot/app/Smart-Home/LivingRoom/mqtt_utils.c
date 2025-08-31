@@ -15,7 +15,7 @@
 
 #include "MQTTPacket.h"
 #include "transport.h"
-#include "bathroom_task.h"
+#include "livingroom_task.h"
 #include "Tools.h"
 
 int toStop = 0;
@@ -99,11 +99,11 @@ int mqtt_connect(void){
     printf("TCP连接成功，发送CONNECT包\n");
 
     // 配置MQTT连接参数
-    data.clientID.cstring = "bathroom_device_01";  // 浴室设备唯一ID
+    data.clientID.cstring = "livingroom_device_01";  // 浴室设备唯一ID
     data.keepAliveInterval = 20;
     data.cleansession = 1;
-    data.username.cstring = "bathroom_user";       // 可选：用户名
-    data.password.cstring = "bathroom_pass";       // 可选：密码
+    data.username.cstring = "livingroom_user";       // 可选：用户名
+    data.password.cstring = "livingroom_pass";       // 可选：密码
 
     // 发送CONNECT包
     len = MQTTSerialize_connect(buf, buflen, &data);
@@ -123,7 +123,7 @@ int mqtt_connect(void){
     }
 
     // 订阅浴室控制主题
-    topicString.cstring = "/sh/envir/status/bathroom";
+    topicString.cstring = "/sh/envir/status/livingroom";
     len = MQTTSerialize_subscribe(buf, buflen, 0, msgid, 1, &topicString, &req_qos);
     rc = transport_sendPacketBuffer(mysock, buf, len);
 
@@ -158,7 +158,7 @@ int mqtt_connect(void){
                                        &payload_in, &payloadlen_in, buf, buflen);
             printf("收到控制命令: %.*s\n", payloadlen_in, payload_in);
 
-            // 解析JSON命令并控制浴室设备
+            // 解析JSON命令并控制客厅设备
             if (json_parse_and_control(payload_in, (unsigned int)payloadlen_in) == 0) {
                 printf("命令执行成功\n");
             } else {
@@ -166,18 +166,18 @@ int mqtt_connect(void){
             }
         }
 
-        // 发布浴室状态数据
-        topicString.cstring = "/sh/envir/status/resp/bathroom";
+        // 发布客厅状态数据
+        topicString.cstring = "/sh/envir/status/resp/livingroom";
         // 构造状态数据（JSON格式）
 
-        int bathroom_state = Query_Room_Status();
-        int bathroom_light_state = Query_Light_Status();
-        int bathroom_fan_state = Query_Fan_Status();
+        int livingroom_fire_status = Query_Fire_Status();
+        int livingroom_light_state = Query_Light_Status();
+        int livingroom_fan_state = Query_Fan_Status();
         int fan_level = Query_Fan_Level();
 
         snprintf(payload, sizeof(payload), 
-                "{\"bathroom_state\":%d,\"bathroom_light_state\":%d,\"bathroom_fan_state\":%d,\"fan_level\":%d}", 
-                bathroom_state, bathroom_light_state, bathroom_fan_state, fan_level);
+                "{\"livingroom_fire_status\":%d,\"livingroom_light_state\":%d,\"livingroom_fan_state\":%d,\"fan_level\":%d}", 
+                livingroom_fire_status, livingroom_light_state, livingroom_fan_state, fan_level);
         payloadlen = strlen(payload);
 
         len = MQTTSerialize_publish(buf, buflen, 0, 0, 0, 0, topicString, 
@@ -196,7 +196,7 @@ exit:
     transport_close(mysock);
     return rc;
 }
-
+/*
 // 网络自动重连机制
 void auto_network_reconnect(void) {
     int wifi_retry_count = 0;
@@ -241,7 +241,7 @@ void auto_network_reconnect(void) {
             break; // 跳出重连循环，正常运行
         }
     }
-}
+}*/
 
 // 硬件自行联网主函数（假设WiFi已通过wifi_utils.c连接）
 void hardware_auto_networking(void) {

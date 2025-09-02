@@ -80,7 +80,7 @@ int mqtt_connect(void){
     int req_qos = 0;
     MQTTString topicString = MQTTString_initializer;
     char payload[256];                                  //此处是发布的信息
-    int payloadlen = 0;
+    //int payloadlen = 0;
     int len = 0;
 
     // MQTT服务器配置 - 使用公共EMQX服务器
@@ -175,6 +175,12 @@ int mqtt_connect(void){
         int bathroom_fan_state = Query_Fan_Status();
         int fan_level = Query_Fan_Level();
 
+        //TODO：增加消息发布函数，注意修改设备ID
+        publish_param(mysock, buf, buflen, payload, sizeof(payload), topicString, 1, bathroom_state, "bathroom_state");
+        publish_param(mysock, buf, buflen, payload, sizeof(payload), topicString, 2, bathroom_light_state, "bathroom_light_state");
+        publish_param(mysock, buf, buflen, payload, sizeof(payload), topicString, 3, bathroom_fan_state, "bathroom_fan_state");
+        publish_param(mysock, buf, buflen, payload, sizeof(payload), topicString, 4, fan_level, "fan_level");
+/*
         snprintf(payload, sizeof(payload), 
                 "{\"bathroom_state\":%d,\"bathroom_light_state\":%d,\"bathroom_fan_state\":%d,\"fan_level\":%d}", 
                 bathroom_state, bathroom_light_state, bathroom_fan_state, fan_level);
@@ -184,7 +190,7 @@ int mqtt_connect(void){
                                   (unsigned char*)payload, payloadlen);
         rc = transport_sendPacketBuffer(mysock, buf, len);
         
-        printf("发布状态: %s\n", payload);
+        printf("发布状态: %s\n", payload);*/
         usleep(5000000);  // 5秒发布一次状态
     }
 
@@ -195,52 +201,6 @@ int mqtt_connect(void){
 exit:
     transport_close(mysock);
     return rc;
-}
-
-// 网络自动重连机制
-void auto_network_reconnect(void) {
-    int wifi_retry_count = 0;
-    int mqtt_retry_count = 0;
-    const int MAX_RETRY = 5;
-    
-    while (1) {
-        // 检查WiFi连接状态
-        if (!check_network_status()) {
-            printf("WiFi连接丢失，尝试重连...\n");
-            wifi_retry_count++;
-            
-            if (wifi_retry_count <= MAX_RETRY) {
-                printf("WiFi连接丢失，需要外部重新调用wifi_utils.c进行重连\n");
-                printf("重试次数: %d/%d\n", wifi_retry_count, MAX_RETRY);
-                usleep(10000000); // 等待10秒后重试
-                continue;
-            } else {
-                printf("WiFi重连失败次数过多，进入休眠模式\n");
-                usleep(60000000); // 休眠1分钟后重置重试计数
-                wifi_retry_count = 0;
-                continue;
-            }
-        }
-        
-        // WiFi连接正常，尝试MQTT连接
-        if (mqtt_connect() != 0) {
-            printf("MQTT连接失败，尝试重连...\n");
-            mqtt_retry_count++;
-            
-            if (mqtt_retry_count <= MAX_RETRY) {
-                printf("MQTT重连重试次数: %d/%d\n", mqtt_retry_count, MAX_RETRY);
-                usleep(5000000); // 等待5秒后重试
-            } else {
-                printf("MQTT重连失败次数过多，重置计数\n");
-                mqtt_retry_count = 0;
-                usleep(30000000); // 休眠30秒后重试
-            }
-        } else {
-            // MQTT连接成功，重置重试计数
-            mqtt_retry_count = 0;
-            break; // 跳出重连循环，正常运行
-        }
-    }
 }
 
 // 硬件自行联网主函数（假设WiFi已通过wifi_utils.c连接）

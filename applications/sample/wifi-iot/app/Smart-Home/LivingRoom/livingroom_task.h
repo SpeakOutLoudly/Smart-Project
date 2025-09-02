@@ -16,6 +16,7 @@ int Query_Light_Status(void);
 int Query_Fan_Status(void);
 int Query_Fan_Level(void);
 int Query_Alarm_Status(void);
+int Query_WaterPump_Level(void);
 float Query_Temperature(void);
 float Query_Humidity(void);
 

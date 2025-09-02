@@ -1,11 +1,14 @@
-static_library("Smart_bathroom_b"){
+static_library("Smart_livingroom"){
     sources = [
         "main.c",
-        "bathroom_task.c",
+        "livingroon_task.c",
         "mqtt_utils.c",
         "wifi_utils.c",
         "publish_task.c",
         "Tools.c",
+        "oled_task.c",
+        "oled_ssd1306.c",
+        "aht20.c",
         "//vendor/hisi/hi3861/hi3861/platform/drivers/pwm/hi_pwm.c",
         # "//vendor/hisi/hi3861/hi3861/platform/drivers/i2c/i2c.c",
     ]

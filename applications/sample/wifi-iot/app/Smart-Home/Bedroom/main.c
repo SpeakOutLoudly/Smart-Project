@@ -10,15 +10,17 @@
 // #include "lwip/api_shell.h" // 移除可能有问题的头文件包含
 #include "wifi_utils.h"
 #include "mqtt_utils.h"
-#include "bathroom_task.h"
+#include "livingroom_task.h"
 #include "publish_task.h"
+#include "oled_task.h"
 
 static void main_entry(void *arg){
     (void)arg;
     sleep(2);
-    printf("Smart Home BathroomPart Running...\r\n");
+    printf("Smart Home LivingRoomPart Running...\r\n");
 
-    bathroom_task();
+    Main_Task();
+    OledDemo();
     publish_task();
 
 }

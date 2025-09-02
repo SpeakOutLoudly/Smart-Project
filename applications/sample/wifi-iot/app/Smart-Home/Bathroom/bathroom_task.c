@@ -12,6 +12,9 @@
 
 // PWM频率分频常量定义
 #define PWM_DUTY 64000
+#define PWM_Gear_1 19200
+#define PWM_Gear_2 38400
+#define PWM_Gear_3 64000
 #define PWM_FREQ_DIVITION 64000
 #define FAN_POWER_GPIO WIFI_IOT_IO_NAME_GPIO_8
 
@@ -84,23 +87,36 @@ void bathroom_init(void *arg){
 
 static void bathroom_control_set_light(char *value)
 {   
+    int light_num = atoi(value);  // 将字符串转换为整数
     printf("进入bathroom_control_set_light函数\n");
-    if (strcmp(value, "ON") == 0)
-    {
+    if (light_num == 1){
         printf("打开灯光\n");
-        PwmStart(WIFI_IOT_PWM_PORT_PWM1, PWM_DUTY, PWM_FREQ_DIVITION); // 红灯全亮
-        PwmStart(WIFI_IOT_PWM_PORT_PWM2, PWM_DUTY, PWM_FREQ_DIVITION); // 绿灯全亮
-        PwmStart(WIFI_IOT_PWM_PORT_PWM3, PWM_DUTY, PWM_FREQ_DIVITION); // 蓝灯全亮
+        PwmStart(WIFI_IOT_PWM_PORT_PWM1, PWM_Gear_1, PWM_FREQ_DIVITION); // 红灯30%
+        PwmStart(WIFI_IOT_PWM_PORT_PWM2, PWM_Gear_1, PWM_FREQ_DIVITION); // 绿灯30%
+        PwmStart(WIFI_IOT_PWM_PORT_PWM3, PWM_Gear_1, PWM_FREQ_DIVITION); // 蓝灯30%
         bathroom_light_state = 1;
-    }
-    else
-    {
+    }else if(light_num == 2){
+        printf("打开灯光\n");
+        PwmStart(WIFI_IOT_PWM_PORT_PWM1, PWM_Gear_2, PWM_FREQ_DIVITION); // 红灯60%
+        PwmStart(WIFI_IOT_PWM_PORT_PWM2, PWM_Gear_2, PWM_FREQ_DIVITION); // 绿灯60%
+        PwmStart(WIFI_IOT_PWM_PORT_PWM3, PWM_Gear_2, PWM_FREQ_DIVITION); // 蓝灯60%
+        bathroom_light_state = 1;
+    }else if(light_num == 3){
+        printf("打开灯光\n");
+        PwmStart(WIFI_IOT_PWM_PORT_PWM1, PWM_Gear_3, PWM_FREQ_DIVITION); // 红灯100%
+        PwmStart(WIFI_IOT_PWM_PORT_PWM2, PWM_Gear_3, PWM_FREQ_DIVITION); // 绿灯100%
+        PwmStart(WIFI_IOT_PWM_PORT_PWM3, PWM_Gear_3, PWM_FREQ_DIVITION); // 蓝灯100%
+        bathroom_light_state = 1;
+    }else if (light_num == 0){
         printf("关闭灯光\n");
         PwmStop(WIFI_IOT_PWM_PORT_PWM1);
         PwmStop(WIFI_IOT_PWM_PORT_PWM2);
         PwmStop(WIFI_IOT_PWM_PORT_PWM3);
         bathroom_light_state = 0;
         // 移除这行：Control_Status_Light = 0; 让手动控制持续有效
+    }
+    else{
+        printf("无效的灯光控制值: %s\n", value);
     }
 }
 
@@ -228,18 +244,19 @@ void Main_Task(void){
 // ==================== 硬件外部控制接口 ====================
 //以下是对硬件的远程控制部分
 
-
+//TODO：增加硬件控制函数，注意修改设备ID
 /*
  * 硬件控制主函数
  * 根据target选择相应的处理函数，并传入value
  */
-void Hardware_Control(char *target, char *value) {
+void Hardware_Control(char *target, char *param, char *value) {
+    param = param;
     if (target == NULL || value == NULL) {
         printf("hardware_control: target或value为NULL\n");
         return;
     }
 
-    printf("执行硬件控制 - 目标: %s, 值: %s\n", target, value);
+    printf("执行硬件控制 - 目标: %s, 参数: %s, 值: %s\n", target, param, value);
 
     // 使用字符串比较来判断目标设备类型
     if (strcmp(target, "FAN") == 0) {

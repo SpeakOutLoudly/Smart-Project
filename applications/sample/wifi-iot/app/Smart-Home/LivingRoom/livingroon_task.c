@@ -25,6 +25,7 @@ static void livingroom_fire_alarm_control(char *value);
 static void livingroom_Biglight_control(char *value);
 static void livingroom_Walllight_control(char *value);
 static void livingroom_Smalllight_control(char *value);
+static void livingroom_WaterPump_control(char *param, char *value);
 
 /**
  * 引脚管理
@@ -55,8 +56,8 @@ static void livingroom_Smalllight_control(char *value);
  * Pin14
  * 
  * 水泵：
- * Pin0：PWM3 速率控制
- * Pin1：GPIO 电源
+ * Pin0：PWM3 速率控制（原来10）
+ * Pin1：GPIO 电源（原来5）
  */
 // PWM频率分频常量定义
 #define PWM_DUTY 64000
@@ -69,6 +70,8 @@ static int livingroom_fan_state = 0;
 static int livingroom_light_state = 0;
 static int livingroom_fire_status = 0;
 static int livingroom_alarm_status = 0;
+static int livingroom_WaterPump_state = 0;
+static int livingroom_WaterPump_level = 0;
 static int fan_level = 0;
 
 static float temperature = 0.0f;
@@ -103,7 +106,13 @@ static void Init_Aht20_GPIO(void){
 
 //水泵引脚初始化
 static void Init_WaterPump_GPIO(void){
-    
+    //速率控制
+    IoSetFunc(WIFI_IOT_IO_NAME_GPIO_0, WIFI_IOT_IO_FUNC_GPIO_0_PWM3_OUT);
+    PwmInit(WIFI_IOT_PWM_PORT_PWM3);
+
+    //电源控制
+    IoSetFunc(WIFI_IOT_IO_NAME_GPIO_1, WIFI_IOT_IO_FUNC_GPIO_1_GPIO);
+    GpioSetDir(WIFI_IOT_IO_NAME_GPIO_1, WIFI_IOT_GPIO_DIR_OUT);
 }
 
 //风扇引脚初始化
@@ -136,6 +145,7 @@ static void livingroom_init(void *arg){
     Init_Firesensor_GPIO();
     Init_Beeper_GPIO();
     Init_Aht20_GPIO();
+    Init_WaterPump_GPIO();
     printf("[livingroom] Initialization completed\n");
 }
 
@@ -213,10 +223,10 @@ static void livingroom_entry(void *arg){
             PwmStop(WIFI_IOT_PWM_PORT_PWM1);   
         }
 
-        //水泵手动控制     //TODO：修改变量名，增加引脚初始化
-        if(livingroom_fan_state == 1){
+        //水泵手动控制
+        if(livingroom_WaterPump_state == 1){
             GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_1, WIFI_IOT_GPIO_VALUE1);
-            PwmStart(WIFI_IOT_PWM_PORT_PWM3, PWM_FREQ_DIVITION / 10 * (fan_level + 7),
+            PwmStart(WIFI_IOT_PWM_PORT_PWM3, PWM_FREQ_DIVITION / 10 * (livingroom_WaterPump_level + 7),
             PWM_FREQ_DIVITION);
         } else{
             GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_1, WIFI_IOT_GPIO_VALUE0);
@@ -233,6 +243,8 @@ void Status_Query(void) {            //TODO：采用JSON形式发送，注意接
     printf("执行状态查询\n");
     printf("livingroom_fire_status: %d\n", livingroom_fire_status);
     printf("livingroom_light_state: %d\n", livingroom_light_state);
+    printf("livingroom_WaterPump_state: %d\n", livingroom_WaterPump_state);
+    printf("livingroom_WaterPump_level: %d\n", livingroom_WaterPump_level);
 }
 
 int Query_Fire_Status(void){
@@ -255,6 +267,9 @@ float Query_Humidity(void){
 }
 int Query_Alarm_Status(void){
     return livingroom_alarm_status;
+}
+int Query_WaterPump_Level(void){
+    return livingroom_WaterPump_level;
 }
 
 // ==================== 系统控制接口 ====================
@@ -294,6 +309,8 @@ void Hardware_Control(char *target, char *param, char *value){   //从设备名�
         livingroom_fan_control(param, value);
     }else if(strcmp(target, "15") == 0){
         livingroom_fire_alarm_control(value);
+    }else if(strcmp(target, "16") == 0){            //空气净化器 TODO修改ID
+        livingroom_WaterPump_control(param, value);
     }else if(strcmp(target, "STATUS") == 0){
         Status_Query();
     }
@@ -307,10 +324,10 @@ void Hardware_Control(char *target, char *param, char *value){   //从设备名�
 static void livingroom_fire_alarm_control(char *value){
     uint16_t freqDivisor = 34052;
 
-    if(strcmp(value, "ON") == 0){
+    if(strcmp(value, "1") == 0){
         livingroom_alarm_status = 1;
         PwmStart(WIFI_IOT_PWM_PORT_PWM0, freqDivisor / 2, freqDivisor);
-    }else if(strcmp(value, "OFF") == 0){
+    }else if(strcmp(value, "0") == 0){
         livingroom_alarm_status = 0;
         PwmStop(WIFI_IOT_PWM_PORT_PWM0);
     }
@@ -405,65 +422,21 @@ static void livingroom_Smalllight_control(char *value){
         break;
     }
 }
-/*
-static void livingroom_light_control(char *value){
-    int light_num = atoi(value);  // 将字符串转换为整数
-    
-    switch(light_num) {
-        case 1:
-            printf("打开1号灯光\n");
-            livingroom_light_state = 11;
-            GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_10, WIFI_IOT_GPIO_VALUE1);
-            break;
-            
-        case 2:
-            printf("打开2号灯光\n");
-            livingroom_light_state = 21;
-            GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_6, WIFI_IOT_GPIO_VALUE1);
-            break;
-            
-        case 3:
-            printf("打开3号灯光\n");
-            livingroom_light_state = 31;
-            GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_12, WIFI_IOT_GPIO_VALUE1);
-            break;
-            
-        case 4:
-            printf("打开所有灯光\n");
-            livingroom_light_state = 1;
-            GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_10, WIFI_IOT_GPIO_VALUE1);
-            GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_6, WIFI_IOT_GPIO_VALUE1);
-            GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_12, WIFI_IOT_GPIO_VALUE1);
-            break;
-            
-        case -1:
-            printf("关闭1号灯光\n");
-            livingroom_light_state = 10;
-            GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_10, WIFI_IOT_GPIO_VALUE0);
-            break;
-            
-        case -2:
-            printf("关闭2号灯光\n");
-            livingroom_light_state = 20;
-            GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_6, WIFI_IOT_GPIO_VALUE0);
-            break;
-            
-        case -3:
-            printf("关闭3号灯光\n");
-            livingroom_light_state = 30;
-            GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_12, WIFI_IOT_GPIO_VALUE0);
-            break;
-        
-        case 0:
-            printf("关闭所有灯光\n");   
-            livingroom_light_state = 0;
-            GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_10, WIFI_IOT_GPIO_VALUE0);
-            GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_6, WIFI_IOT_GPIO_VALUE0);
-            GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_12, WIFI_IOT_GPIO_VALUE0);
-            break;
-            
-        default:
-            printf("无效的灯光控制值: %s\n", value);
-            break;
+
+static void livingroom_WaterPump_control(char *param, char *value){
+    param = param;
+    int value_int = atoi(value);
+    if(value_int < 0 || value_int > 3){
+        printf("livingroom_WaterPump_control: 无效的空气净化器级别 %d（应为0-3）\n", value_int);
+        return;
+    } 
+    if(value_int == 0){
+        printf("关闭空气净化器\n");
+        livingroom_WaterPump_state = 0;
+
+    }else{
+        printf("打开空气净化器\n");
+        livingroom_WaterPump_state = 1;
+        livingroom_WaterPump_level = value_int;
     }
-}*/
+}

@@ -34,6 +34,6 @@ void Main_Task(void);
  * @param target 目标设备类型
  * @param value 控制值
  */
-void Hardware_Control(char *target, char *value);
+void Hardware_Control(char *target, char *param, char *value);
 
 #endif

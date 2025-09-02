@@ -1,8 +1,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include "MQTTPacket.h"
 #include "livingroom_task.h"
 #include "cJSON.h"
+#include "transport.h"
 
 
 /*
@@ -25,6 +27,7 @@ int json_parse_and_control(unsigned char *payload_in, unsigned int payload_len) 
     cJSON *target_item = NULL;
     cJSON *value_item = NULL;
     char *target = NULL;
+    char *param = NULL;
     char *value = NULL;
     int ret = -1;
     
@@ -61,6 +64,14 @@ int json_parse_and_control(unsigned char *payload_in, unsigned int payload_len) 
     }
     target = target_item->valuestring;
     
+    // 获取param字段
+    cJSON *param_item = cJSON_GetObjectItem(root, "param");
+    if (param_item == NULL || !cJSON_IsString(param_item)) {
+        printf("json_parse_and_control: 未找到'param'字段或类型错误\n");
+        goto cleanup;
+    }
+    param = param_item->valuestring;
+
     // 获取value字段
     value_item = cJSON_GetObjectItem(root, "value");
     if (value_item == NULL || !cJSON_IsString(value_item)) {
@@ -72,7 +83,7 @@ int json_parse_and_control(unsigned char *payload_in, unsigned int payload_len) 
     printf("解析成功 - target: %s, value: %s\n", target, value);
     
     // 调用硬件控制函数
-    Hardware_Control(target, value);
+    Hardware_Control(target, param, value);
     ret = 0;
     
 cleanup:
@@ -86,3 +97,40 @@ cleanup:
     return ret;
 }
 
+// 生成：{"deviceId": <id>, "param": <value>}
+static int json_Submit(int deviceId, int value, char *payload, size_t payload_size) {
+    int n = snprintf(payload, payload_size, "{\"deviceId\":%d,\"param\":%d}", deviceId, value);
+    if (n < 0 || (size_t)n >= payload_size) return -1; // 防止溢出
+    return 0;
+}
+
+// 封装单个参数的发布流程
+int publish_param(int mysock, 
+                         unsigned char *buf, int buflen, 
+                         char *payload, size_t payload_size,
+                         MQTTString topicString,
+                         int deviceId, int value, 
+                         const char *desc)
+{
+    int payloadlen, len, rc;
+
+    if (json_Submit(deviceId, value, payload, payload_size) == 0) {
+        payloadlen = strlen(payload);
+
+        len = MQTTSerialize_publish(buf, buflen,
+                                    0,   // dup = 0
+                                    0,   // qos = 0
+                                    0,   // retained = 0
+                                    0,   // msgid = 0
+                                    topicString,
+                                    (unsigned char*)payload,
+                                    payloadlen);
+
+        rc = transport_sendPacketBuffer(mysock, buf, len);
+        printf("发布状态(%s): %s\n", desc, payload);
+        return rc;
+    } else {
+        printf("构造 JSON 失败: %s\n", desc);
+        return -1;
+    }
+}

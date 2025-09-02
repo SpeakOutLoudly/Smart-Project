@@ -17,17 +17,21 @@
 //对应管脚PIN11
 #include "aht20.h"
 
+
 // 静态函数前向声明
-static void livingroom_light_control(char *value);
-static void livingroom_fan_control(char *value);
+//static void livingroom_light_control(char *value);
+static void livingroom_fan_control(char *param, char *value);
 static void livingroom_fire_alarm_control(char *value);
+static void livingroom_Biglight_control(char *value);
+static void livingroom_Walllight_control(char *value);
+static void livingroom_Smalllight_control(char *value);
 
 /**
  * 引脚管理
  * 红绿灯板：
  * 灯光：
  * Pin10：GPIO 红灯控制
- * Pin11：GPIO 绿灯控制
+ * Pin6：GPIO 绿灯控制    由于与mq2冲突，改为GPIO6
  * Pin12：GPIO 蓝灯控制
  * 蜂鸣器：
  * Pin9：PWM0 蜂鸣器控制
@@ -44,16 +48,22 @@ static void livingroom_fire_alarm_control(char *value);
  * 温湿度传感器：
  * Pin13：I2C0 SDA
  * Pin14：I2C0 SCL
+ * Pin11：ADC 天然气传感器
  * 
  * LED显示器：
  * Pin13
  * Pin14
+ * 
+ * 水泵：
+ * Pin0：PWM3 速率控制
+ * Pin1：GPIO 电源
  */
 // PWM频率分频常量定义
 #define PWM_DUTY 64000
 #define PWM_FREQ_DIVITION 64000
 #define AHT20_BAUDRATE 400 * 1000
 #define AHT20_I2C_IDX WIFI_IOT_I2C_IDX_0
+#define GAS_SENSOR_CHAN_NAME WIFI_IOT_ADC_CHANNEL_5
 
 static int livingroom_fan_state = 0;
 static int livingroom_light_state = 0;
@@ -71,8 +81,8 @@ static void Init_Light_GPIO(void){
     IoSetFunc(WIFI_IOT_IO_NAME_GPIO_10, WIFI_IOT_IO_FUNC_GPIO_10_GPIO);
     GpioSetDir(WIFI_IOT_IO_NAME_GPIO_10, WIFI_IOT_GPIO_DIR_OUT);
 
-    IoSetFunc(WIFI_IOT_IO_NAME_GPIO_11, WIFI_IOT_IO_FUNC_GPIO_11_GPIO);
-    GpioSetDir(WIFI_IOT_IO_NAME_GPIO_11, WIFI_IOT_GPIO_DIR_OUT);
+    IoSetFunc(WIFI_IOT_IO_NAME_GPIO_6, WIFI_IOT_IO_FUNC_GPIO_6_GPIO);
+    GpioSetDir(WIFI_IOT_IO_NAME_GPIO_6, WIFI_IOT_GPIO_DIR_OUT);
 
     IoSetFunc(WIFI_IOT_IO_NAME_GPIO_12, WIFI_IOT_IO_FUNC_GPIO_12_GPIO);
     GpioSetDir(WIFI_IOT_IO_NAME_GPIO_12, WIFI_IOT_GPIO_DIR_OUT);
@@ -89,6 +99,11 @@ static void Init_Aht20_GPIO(void){
     IoSetFunc(WIFI_IOT_IO_NAME_GPIO_13, WIFI_IOT_IO_FUNC_GPIO_13_I2C0_SDA);
     IoSetFunc(WIFI_IOT_IO_NAME_GPIO_14, WIFI_IOT_IO_FUNC_GPIO_14_I2C0_SCL);
     I2cInit(AHT20_I2C_IDX,AHT20_BAUDRATE);
+}
+
+//水泵引脚初始化
+static void Init_WaterPump_GPIO(void){
+    
 }
 
 //风扇引脚初始化
@@ -132,6 +147,7 @@ static void livingroom_init(void *arg){
  static void livingroom_read_aht20(void){
     uint32_t retval = 0;
     retval = AHT20_StartMeasure();
+    printf("AHT20_StartMeasure: %d\n", retval);
     if (retval != WIFI_IOT_SUCCESS)
     {
         printf("trigger measure failed!\r\n");
@@ -143,6 +159,18 @@ static void livingroom_init(void *arg){
         printf("temp: %.2f,  humi: %.2f\n", temperature, humidity);
     }
 }
+
+/**
+ * @brief 读取天然气传感器数据
+ */
+
+static void livingroom_read_gas_sensor(void){
+    unsigned short data = 0;
+    if(AdcRead(GAS_SENSOR_CHAN_NAME,&data, WIFI_IOT_ADC_EQU_MODEL_4, WIFI_IOT_ADC_CUR_BAIS_DEFAULT, 0) == WIFI_IOT_SUCCESS){
+        printf("gas: %d\n", data);
+    }
+}
+
 
 /**
  * @brief 读取火焰传感器数据
@@ -172,7 +200,7 @@ static void livingroom_entry(void *arg){
     while(1){
         livingroom_read_aht20();
         livingroom_read_fire_sensor();
-
+        livingroom_read_gas_sensor();
         //灯光手动控制
 
         //风扇手动控制
@@ -182,10 +210,19 @@ static void livingroom_entry(void *arg){
             PWM_FREQ_DIVITION);
         } else{
             GpioSetOutputVal(FAN_POWER_GPIO, WIFI_IOT_GPIO_VALUE0);
-            PwmStop(WIFI_IOT_PWM_PORT_PWM1);
-            
+            PwmStop(WIFI_IOT_PWM_PORT_PWM1);   
         }
-        sleep(1);
+
+        //水泵手动控制     //TODO：修改变量名，增加引脚初始化
+        if(livingroom_fan_state == 1){
+            GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_1, WIFI_IOT_GPIO_VALUE1);
+            PwmStart(WIFI_IOT_PWM_PORT_PWM3, PWM_FREQ_DIVITION / 10 * (fan_level + 7),
+            PWM_FREQ_DIVITION);
+        } else{
+            GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_1, WIFI_IOT_GPIO_VALUE0);
+            PwmStop(WIFI_IOT_PWM_PORT_PWM3);   
+        }
+        sleep(2);
     }
 }
 
@@ -245,17 +282,23 @@ void Main_Task(void){
  * @param target 目标设备类型
  * @param value 控制值
  */
-void Hardware_Control(char *target, char *value){
-    if(strcmp(target, "LIGHT") == 0){
-        livingroom_light_control(value);
-    }else if(strcmp(target, "FAN") == 0){
-        livingroom_fan_control(value);
-    }else if(strcmp(target, "FIREALARM") == 0){
+void Hardware_Control(char *target, char *param, char *value){   //从设备名解析改为编号解析，具有映射见文档（后续会更改）
+    param = param;
+    if(strcmp(target, "2") == 0){                    //1号灯
+        livingroom_Biglight_control(value);            
+    }else if(strcmp(target, "3") == 0){              //2号灯     
+        livingroom_Walllight_control(value);
+    }else if(strcmp(target, "5") == 0){              //3号灯     
+        livingroom_Smalllight_control(value);
+    }else if(strcmp(target, "4") == 0){
+        livingroom_fan_control(param, value);
+    }else if(strcmp(target, "15") == 0){
         livingroom_fire_alarm_control(value);
     }else if(strcmp(target, "STATUS") == 0){
         Status_Query();
     }
 }
+
 
 /**
  * @brief 控制火焰传感器报警
@@ -277,9 +320,9 @@ static void livingroom_fire_alarm_control(char *value){
  * @brief 控制风扇
  */
 
- static void livingroom_fan_control(char *value)
+ static void livingroom_fan_control(char *param, char *value)
  {
- 
+    param = param;
      int value_int = atoi(value);
      if(value_int < 0 || value_int > 3){
          printf("livingroom_fan_control: 无效的风扇级别 %d（应为0-3）\n", value_int);
@@ -300,6 +343,69 @@ static void livingroom_fire_alarm_control(char *value){
  /**
   * @brief 控制灯光
   */
+static void livingroom_Biglight_control(char *value){
+    int light_num = atoi(value);  // 将字符串转换为整数
+    switch(light_num) {
+    case 1:
+        printf("打开1号灯光\n");
+        livingroom_light_state = 1;
+        GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_10, WIFI_IOT_GPIO_VALUE1);
+        break;
+        
+    case 0:
+        printf("关闭1号灯光\n");
+        livingroom_light_state = 0;
+        GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_10, WIFI_IOT_GPIO_VALUE0);
+        break;
+
+    default:
+        printf("无效的灯光控制值: %s\n", value);
+        break;
+    }
+}
+
+static void livingroom_Walllight_control(char *value){
+    int light_num = atoi(value);  // 将字符串转换为整数
+    switch(light_num) {
+    case 1:
+        printf("打开2号灯光\n");
+        livingroom_light_state = 1;
+        GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_6, WIFI_IOT_GPIO_VALUE1);
+        break;
+        
+    case 0:
+        printf("关闭2号灯光\n");
+        livingroom_light_state = 0;
+        GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_6, WIFI_IOT_GPIO_VALUE0);
+        break;
+
+    default:
+        printf("无效的灯光控制值: %s\n", value);
+        break;
+    }
+}
+
+static void livingroom_Smalllight_control(char *value){
+    int light_num = atoi(value);  // 将字符串转换为整数
+    switch(light_num) {
+    case 1:
+        printf("打开3号灯光\n");
+        livingroom_light_state = 1;
+        GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_12, WIFI_IOT_GPIO_VALUE1);
+        break;
+        
+    case 0:
+        printf("关闭3号灯光\n");
+        livingroom_light_state = 0;
+        GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_12, WIFI_IOT_GPIO_VALUE0);
+        break;
+
+    default:
+        printf("无效的灯光控制值: %s\n", value);
+        break;
+    }
+}
+/*
 static void livingroom_light_control(char *value){
     int light_num = atoi(value);  // 将字符串转换为整数
     
@@ -313,7 +419,7 @@ static void livingroom_light_control(char *value){
         case 2:
             printf("打开2号灯光\n");
             livingroom_light_state = 21;
-            GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_11, WIFI_IOT_GPIO_VALUE1);
+            GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_6, WIFI_IOT_GPIO_VALUE1);
             break;
             
         case 3:
@@ -326,7 +432,7 @@ static void livingroom_light_control(char *value){
             printf("打开所有灯光\n");
             livingroom_light_state = 1;
             GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_10, WIFI_IOT_GPIO_VALUE1);
-            GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_11, WIFI_IOT_GPIO_VALUE1);
+            GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_6, WIFI_IOT_GPIO_VALUE1);
             GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_12, WIFI_IOT_GPIO_VALUE1);
             break;
             
@@ -339,7 +445,7 @@ static void livingroom_light_control(char *value){
         case -2:
             printf("关闭2号灯光\n");
             livingroom_light_state = 20;
-            GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_11, WIFI_IOT_GPIO_VALUE0);
+            GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_6, WIFI_IOT_GPIO_VALUE0);
             break;
             
         case -3:
@@ -352,7 +458,7 @@ static void livingroom_light_control(char *value){
             printf("关闭所有灯光\n");   
             livingroom_light_state = 0;
             GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_10, WIFI_IOT_GPIO_VALUE0);
-            GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_11, WIFI_IOT_GPIO_VALUE0);
+            GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_6, WIFI_IOT_GPIO_VALUE0);
             GpioSetOutputVal(WIFI_IOT_IO_NAME_GPIO_12, WIFI_IOT_GPIO_VALUE0);
             break;
             
@@ -360,4 +466,4 @@ static void livingroom_light_control(char *value){
             printf("无效的灯光控制值: %s\n", value);
             break;
     }
-}
+}*/

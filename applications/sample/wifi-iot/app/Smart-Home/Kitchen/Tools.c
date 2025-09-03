@@ -2,7 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "MQTTPacket.h"
-#include "livingroom_task.h"
+#include "kitchen_task.h"
 #include "cJSON.h"
 #include "transport.h"
 
@@ -98,8 +98,8 @@ cleanup:
 }
 
 // 生成：{"deviceId": <id>, "param": <value>}
-static int json_Submit(int deviceId, int value, char *payload, size_t payload_size, char *paraName) {
-    int n = snprintf(payload, payload_size, "{\"deviceId\":\"%d\",\"%s\":\"%d\"}", deviceId, paraName, value);
+static int json_Submit(int deviceId, int value, char *paramName, char *payload, size_t payload_size) {
+    int n = snprintf(payload, payload_size, "{\"deviceId\":\"%d\",\"%s\":\"%d\"}", deviceId, paramName, value);
     if (n < 0 || (size_t)n >= payload_size) return -1; // 防止溢出
     return 0;
 }
@@ -109,12 +109,12 @@ int publish_param(int mysock,
                          unsigned char *buf, int buflen, 
                          char *payload, size_t payload_size,
                          MQTTString topicString,
-                         int deviceId, int value, char *paraName,
+                         int deviceId, int value, char *paramName,
                          const char *desc)
 {
     int payloadlen, len, rc;
 
-    if (json_Submit(deviceId, value, payload, payload_size, paraName) == 0) {
+    if (json_Submit(deviceId, value, paramName, payload, payload_size) == 0) {
         payloadlen = strlen(payload);
 
         len = MQTTSerialize_publish(buf, buflen,

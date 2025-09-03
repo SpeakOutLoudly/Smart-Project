@@ -18,6 +18,13 @@
 #define PWM_FREQ_DIVITION 64000
 #define FAN_POWER_GPIO WIFI_IOT_IO_NAME_GPIO_8
 
+/**
+ *  炫彩灯板：
+ * 
+ * 
+ * 
+ */
+
 static int bathroom_state = 0;
 static int bathroom_fan_state = 0;
 static int bathroom_light_state = 0;

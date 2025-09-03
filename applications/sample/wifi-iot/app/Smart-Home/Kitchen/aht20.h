@@ -3,6 +3,7 @@
 #ifndef AHT20_H
 #define AHT20_H
 
+
 #include <stdint.h>
 // 发送初始化校准命令
 uint32_t AHT20_Calibrate(void);

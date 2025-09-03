@@ -11,16 +11,11 @@
  * 接口名：
  * Query_Device_Status
  */
-int Query_Fire_Status(void);
-int Query_Light_Status(void);
-int Query_Fan_Status(void);
-int Query_Fan_Level(void);
-int Query_Alarm_Status(void);
-int Query_WaterPump_Level(void);
+
 float Query_Temperature(void);
 float Query_Humidity(void);
+int Query_Gas_Sensor_Value(void);
 
-void Status_Query(void);
 // ==================== 系统控制接口 ====================
 
 /**

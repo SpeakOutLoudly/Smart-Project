@@ -44,7 +44,7 @@ static void livingroom_WaterPump_control(char *param, char *value);
  * 
  * 火焰传感器板：
  * 火焰传感器：
- * Pin5：GPIO 火焰传感器
+ * Pin5：GPIO 火焰传感器(待测试)
 
  * 温湿度传感器：
  * Pin13：I2C0 SDA
@@ -55,7 +55,7 @@ static void livingroom_WaterPump_control(char *param, char *value);
  * Pin13
  * Pin14
  * 
- * 水泵：
+ * 水泵(弃用)：
  * Pin0：PWM3 速率控制（原来10）
  * Pin1：GPIO 电源（原来5）
  */
@@ -74,6 +74,8 @@ static int livingroom_WaterPump_state = 0;
 static int livingroom_WaterPump_level = 0;
 static int fan_level = 0;
 
+
+static int gas_sensor_value = 0;
 static float temperature = 0.0f;
 static float humidity = 0.0f;
 
@@ -177,7 +179,7 @@ static void livingroom_init(void *arg){
 static void livingroom_read_gas_sensor(void){
     unsigned short data = 0;
     if(AdcRead(GAS_SENSOR_CHAN_NAME,&data, WIFI_IOT_ADC_EQU_MODEL_4, WIFI_IOT_ADC_CUR_BAIS_DEFAULT, 0) == WIFI_IOT_SUCCESS){
-        printf("gas: %d\n", data);
+        gas_sensor_value = data;
     }
 }
 
@@ -239,38 +241,17 @@ static void livingroom_entry(void *arg){
 
 
 // ==================== 硬件外部查询接口 ====================
-void Status_Query(void) {            //TODO：采用JSON形式发送，注意接口文档
-    printf("执行状态查询\n");
-    printf("livingroom_fire_status: %d\n", livingroom_fire_status);
-    printf("livingroom_light_state: %d\n", livingroom_light_state);
-    printf("livingroom_WaterPump_state: %d\n", livingroom_WaterPump_state);
-    printf("livingroom_WaterPump_level: %d\n", livingroom_WaterPump_level);
-}
 
-int Query_Fire_Status(void){
-    return livingroom_fire_status;
-}
-int Query_Light_Status(void){
-    return livingroom_light_state;
-}
-int Query_Fan_Status(void){
-    return livingroom_fan_state;
-}
-int Query_Fan_Level(void){
-    return fan_level;
-}
 float Query_Temperature(void){
     return temperature;
 }
 float Query_Humidity(void){
     return humidity;
 }
-int Query_Alarm_Status(void){
-    return livingroom_alarm_status;
+int Query_Gas_Sensor_Value(void){
+    return gas_sensor_value;
 }
-int Query_WaterPump_Level(void){
-    return livingroom_WaterPump_level;
-}
+
 
 // ==================== 系统控制接口 ====================
 
@@ -303,16 +284,14 @@ void Hardware_Control(char *target, char *param, char *value){   //从设备名�
         livingroom_Biglight_control(value);            
     }else if(strcmp(target, "9") == 0){              //2号灯     
         livingroom_Walllight_control(value);
-    }else if(strcmp(target, "10") == 0){              //3号灯     
+    }else if(strcmp(target, "10") == 0){             //3号灯     
         livingroom_Smalllight_control(value);
-    }else if(strcmp(target, "3") == 0){
+    }else if(strcmp(target, "3") == 0){              //风扇
         livingroom_fan_control(param, value);
-    }else if(strcmp(target, "8") == 0){
+    }else if(strcmp(target, "8") == 0){              //火焰报警
         livingroom_fire_alarm_control(value);
-    }else if(strcmp(target, "16") == 0){            //空气净化器 TODO修改ID
+    }else if(strcmp(target, "999") == 0){             //舍弃
         livingroom_WaterPump_control(param, value);
-    }else if(strcmp(target, "STATUS") == 0){
-        Status_Query();
     }
 }
 

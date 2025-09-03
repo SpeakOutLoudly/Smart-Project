@@ -5,7 +5,12 @@
 #include "wifiiot_gpio.h"
 #include "wifiiot_gpio_ex.h"
 #include "oled_ssd1306.h"
-#include "livingroom_task.h"
+#include "bedroom_task.h"
+
+extern int Query_Alarm_Status(void);
+extern int Query_Fire_Status(void); 
+extern float Query_Temperature(void);
+extern float Query_Humidity(void);
 
 void Oled_init(void){
     GpioInit();
@@ -29,8 +34,7 @@ static void OledDemoTask(void *arg){
         snprintf(line, sizeof(line), "fire_alarm : %3s", Query_Alarm_Status() ? "on" : "off");
         OledShowString(0, 2, line, 1); //在（0，3）位置显示组装后的气体字符串
 
-        snprintf(line, sizeof(line), "fire_state : %2d", Query_Fire_Status());
-        OledShowString(0, 3, line, 1); //在（0，3）位置显示组装后的气体字符串
+        
 
         //组装显示温度的字符串
         snprintf(line, sizeof(line), "temp: %.1f deg", Query_Temperature());

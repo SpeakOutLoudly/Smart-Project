@@ -12,11 +12,10 @@
 
 
 
-
 // 声明缺失的netifapi函数
 extern struct netif* netifapi_netif_find(const char *name);
 extern err_t netifapi_dhcp_start(struct netif *netif);
-//extern err_t netifapi_netif_common(struct netif *netif, void (*voidfunc)(struct netif *netif_p), void *init_arg);
+extern err_t netifapi_netif_common(struct netif *netif, void (*voidfunc)(struct netif *netif_p), void *init_arg);
 
 // 在包含api_shell.h之前定义必要的LWIP宏
 #ifndef LWIP_RPL
@@ -57,7 +56,7 @@ void connect_wifi(void){
 
         // 等待DHCP分配IP
         usleep(2000 * 1000);
-       ret = netifapi_dhcp_start(netIf); 
+        ret = netifapi_netif_common(netIf, dhcp_clients_info_show, NULL);
         printf("netifapi_netif_common：%d\r\n", ret);
     }
 }

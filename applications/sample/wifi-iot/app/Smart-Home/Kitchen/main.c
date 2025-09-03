@@ -10,7 +10,7 @@
 // #include "lwip/api_shell.h" // 移除可能有问题的头文件包含
 #include "wifi_utils.h"
 #include "mqtt_utils.h"
-#include "bedroom_task.h"
+#include "kitchen_task.h"
 #include "publish_task.h"
 #include "oled_task.h"
 

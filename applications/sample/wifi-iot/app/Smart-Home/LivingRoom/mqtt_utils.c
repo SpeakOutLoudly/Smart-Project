@@ -170,26 +170,18 @@ int mqtt_connect(void){
         topicString.cstring = "/sh/envir/status/resp/livingroom";
         // 构造状态数据（JSON格式）
 
-        //TODO：增加消息发布函数，注意修改变量名
-        int livingroom_fire_status = Query_Fire_Status();
-        int livingroom_light_state = Query_Light_Status();
-        int livingroom_WaterPump_level = Query_WaterPump_Level();
-        int fan_level = Query_Fan_Level();
+        //TODO：增加消息发布函数，注意修改变量名,只保留传感器数据   
+
         int temperature = Query_Temperature();
         int humidity = Query_Humidity();
+        int gas_sensor_value = Query_Gas_Sensor_Value();
 
-        publish_param(mysock, buf, buflen, payload, sizeof(payload),
-                      topicString, 5,  livingroom_fire_status, "co2", "livingroom_fire_status");
-        publish_param(mysock, buf, buflen, payload, sizeof(payload),
-                      topicString, 1, livingroom_light_state, "switch", "livingroom_light_state");
-        publish_param(mysock, buf, buflen, payload, sizeof(payload),
-                      topicString, 16, livingroom_WaterPump_level, "level", "livingroom_WaterPump_level");
-        publish_param(mysock, buf, buflen, payload, sizeof(payload),
-                      topicString, 3,   fan_level, "speed",  "fan_level");
         publish_param(mysock, buf, buflen, payload, sizeof(payload),
                       topicString, 4, temperature, "temperature", "temperature");
         publish_param(mysock, buf, buflen, payload, sizeof(payload),
                       topicString, 4, humidity, "humidity", "humidity");
+        publish_param(mysock, buf, buflen, payload, sizeof(payload),
+                      topicString, 6, gas_sensor_value, "gas", "gas_sensor_value");
 /*
         snprintf(payload, sizeof(payload), 
                 "{\"deviceId\":9\"switch\":%d}", 

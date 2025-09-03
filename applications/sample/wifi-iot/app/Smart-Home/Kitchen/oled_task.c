@@ -5,7 +5,7 @@
 #include "wifiiot_gpio.h"
 #include "wifiiot_gpio_ex.h"
 #include "oled_ssd1306.h"
-#include "livingroom_task.h"
+#include "kitchen_task.h"
 
 void Oled_init(void){
     GpioInit();
@@ -26,7 +26,7 @@ static void OledDemoTask(void *arg){
     {
 
         //组装显示气体的字符串 单位是百万分之  ，检测浓度：300-10000ppm(可燃气体)
-        snprintf(line, sizeof(line), "fire_alarm : %3s", Query_Gas_Sensor_Value() ? "on" : "off");
+        snprintf(line, sizeof(line), "fire_alarm : %3s", Query_gas_sensor_value() ? "on" : "off");
         OledShowString(0, 2, line, 1); //在（0，3）位置显示组装后的气体字符串
 
         //组装显示湿度的字符串

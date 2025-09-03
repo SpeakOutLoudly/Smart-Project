@@ -85,13 +85,15 @@ static uint32_t AHT20_Write(uint8_t* buffer, uint32_t buffLen)
         return retval;
     }
     return WIFI_IOT_SUCCESS;
+   
 }
-
+   
 // 发送获取状态命令
 static uint32_t AHT20_StatusCommand(void)
 {
     uint8_t statusCmd[] = { AHT20_CMD_STATUS };
     return AHT20_Write(statusCmd, sizeof(statusCmd));
+    
 }
 
 // 发送软复位命令
@@ -99,6 +101,7 @@ static uint32_t AHT20_ResetCommand(void)
 {
     uint8_t resetCmd[] = {AHT20_CMD_RESET};
     return AHT20_Write(resetCmd, sizeof(resetCmd));
+    
 }
 
 // 发送初始化校准命令
@@ -106,6 +109,7 @@ static uint32_t AHT20_CalibrateCommand(void)
 {
     uint8_t clibrateCmd[] = {AHT20_CMD_CALIBRATION, AHT20_CMD_CALIBRATION_ARG0, AHT20_CMD_CALIBRATION_ARG1};
     return AHT20_Write(clibrateCmd, sizeof(clibrateCmd));
+    
 }
 
 // 读取温湿度值之前， 首先要看状态字的校准使能位Bit[3]是否为 1(通过发送0x71可以获取一个字节的状态字)，
@@ -138,6 +142,7 @@ uint32_t AHT20_Calibrate(void)
     }
 
     return WIFI_IOT_SUCCESS;
+    
 }
 
 // 发送 触发测量 命令，开始测量
@@ -145,6 +150,7 @@ uint32_t AHT20_StartMeasure(void)
 {
     uint8_t triggerCmd[] = {AHT20_CMD_TRIGGER, AHT20_CMD_TRIGGER_ARG0, AHT20_CMD_TRIGGER_ARG1};
     return AHT20_Write(triggerCmd, sizeof(triggerCmd));
+    
 }
 
 // 接收测量结果，拼接转换为标准值
@@ -171,7 +177,7 @@ uint32_t AHT20_GetMeasureResult(float* temp, float* humi)
         }
     }
     if (i >= AHT20_MAX_RETRY) {
-        printf("AHT20 device always busy!\r\n");
+       
         return WIFI_IOT_FAILURE;
     }
 
@@ -186,4 +192,5 @@ uint32_t AHT20_GetMeasureResult(float* temp, float* humi)
     *temp = tempRaw / (float)AHT20_RESLUTION * 200 - 50;
     // printf("humi = %05X, %f, temp= %05X, %f\r\n", humiRaw, *humi, tempRaw, *temp);
     return WIFI_IOT_SUCCESS;
+   
 }

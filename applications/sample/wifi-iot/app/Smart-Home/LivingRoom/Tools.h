@@ -8,7 +8,7 @@ int publish_param(int mysock,
                  unsigned char *buf, int buflen, 
                  char *payload, size_t payload_size,
                  MQTTString topicString,
-                 int deviceId, int value, 
+                 int deviceId, int value, char *paraName,
                  const char *desc);
 
 #endif

@@ -25,9 +25,6 @@ static int fan_level = 1;
 
 static int Control_Status_Light = 0;  // 0:自动模式, 1:待执行手动操作, 2:手动模式(已执行)
 static char *Control_Value_Light = "OFF";
-static int Control_Status_Fan = 0;    // 0:自动模式, 1:待执行手动操作, 2:手动模式(已执行)
-static char *Control_Value_Fan = "0";
-
 
 
 // 引脚初始化函数
@@ -146,13 +143,6 @@ static void reset_to_auto_mode(char *value) {
     if (strcmp(value, "LIGHT") == 0) {
         Control_Status_Light = 0;
         printf("灯光已重置为自动模式\n");
-    } else if (strcmp(value, "FAN") == 0) {
-        Control_Status_Fan = 0;
-        printf("风扇已重置为自动模式\n");
-    } else if (strcmp(value, "ALL") == 0) {
-        Control_Status_Light = 0;
-        Control_Status_Fan = 0;
-        printf("所有设备已重置为自动模式\n");
     } else {
         printf("reset_to_auto_mode: 未知设备类型 %s\n", value);
     }
@@ -203,14 +193,14 @@ void bathroom_entry(void *arg){
             }
         }
         // Control_Status_Light == 2 时，保持手动模式，不做任何操作
-  
+        /*
         // 风扇控制逻辑
         if(Control_Status_Fan == 1){
             // 有待执行的手动操作
             printf("风扇进入手动模式\n");
             bathroom_control_set_fan(Control_Value_Fan);
             Control_Status_Fan = 2; // 标记为已执行手动操作
-        }
+        }*/
         
         // 风扇硬件控制（无论手动还是自动模式都需要执行硬件操作）
         if (fan_level > 0 && fan_level < 4 && bathroom_fan_state == 1){
@@ -260,14 +250,14 @@ void Hardware_Control(char *target, char *param, char *value) {
 
     // 使用字符串比较来判断目标设备类型
     if (strcmp(target, "FAN") == 0) {
-        Control_Status_Fan = 1;
-        Control_Value_Fan = value;  
+        bathroom_control_set_fan(value);
     }
-    else if (strcmp(target, "LIGHT") == 0) {
+    else if (strcmp(target, "LIGHT") == 0 && strcmp(param, "BRIGHTNESS") == 0) {
+
         Control_Status_Light = 1;
         Control_Value_Light = value;
     }
-    else if (strcmp(target, "MODE") == 0) {
+    else if (strcmp(target, "LIGHT") == 0 && strcmp(param, "MODE") == 0) {
         reset_to_auto_mode(value);
     }
     else if (strcmp(target, "STATUS") == 0) {

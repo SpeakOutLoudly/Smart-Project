@@ -84,7 +84,7 @@ int mqtt_connect(void){
     int len = 0;
 
     // MQTT服务器配置 - 使用公共EMQX服务器
-    char *host = "192.168.50.91";  // 可改为您的MQTT服务器地址
+    char *host = "192.168.50.82";  // 可改为您的MQTT服务器地址
     int port = 1883;
 
     printf("尝试连接MQTT服务器: %s:%d\n", host, port);
@@ -175,15 +175,21 @@ int mqtt_connect(void){
         int livingroom_light_state = Query_Light_Status();
         int livingroom_WaterPump_level = Query_WaterPump_Level();
         int fan_level = Query_Fan_Level();
+        int temperature = Query_Temperature();
+        int humidity = Query_Humidity();
 
         publish_param(mysock, buf, buflen, payload, sizeof(payload),
-                      topicString, 9,  livingroom_fire_status,  "livingroom_fire_status");
+                      topicString, 5,  livingroom_fire_status, "co2", "livingroom_fire_status");
         publish_param(mysock, buf, buflen, payload, sizeof(payload),
-                      topicString, 2, livingroom_light_state, "livingroom_light_state");
+                      topicString, 1, livingroom_light_state, "switch", "livingroom_light_state");
         publish_param(mysock, buf, buflen, payload, sizeof(payload),
-                      topicString, 16, livingroom_WaterPump_level, "livingroom_WaterPump_level");
+                      topicString, 16, livingroom_WaterPump_level, "level", "livingroom_WaterPump_level");
         publish_param(mysock, buf, buflen, payload, sizeof(payload),
-                      topicString, 4,   fan_level,   "fan_level");
+                      topicString, 3,   fan_level, "speed",  "fan_level");
+        publish_param(mysock, buf, buflen, payload, sizeof(payload),
+                      topicString, 4, temperature, "temperature", "temperature");
+        publish_param(mysock, buf, buflen, payload, sizeof(payload),
+                      topicString, 4, humidity, "humidity", "humidity");
 /*
         snprintf(payload, sizeof(payload), 
                 "{\"deviceId\":9\"switch\":%d}", 

@@ -299,15 +299,15 @@ void Main_Task(void){
  */
 void Hardware_Control(char *target, char *param, char *value){   //从设备名解析改为编号解析，具有映射见文档（后续会更改）
     param = param;
-    if(strcmp(target, "2") == 0){                    //1号灯
+    if(strcmp(target, "1") == 0){                    //1号灯
         livingroom_Biglight_control(value);            
-    }else if(strcmp(target, "3") == 0){              //2号灯     
+    }else if(strcmp(target, "9") == 0){              //2号灯     
         livingroom_Walllight_control(value);
-    }else if(strcmp(target, "5") == 0){              //3号灯     
+    }else if(strcmp(target, "10") == 0){              //3号灯     
         livingroom_Smalllight_control(value);
-    }else if(strcmp(target, "4") == 0){
+    }else if(strcmp(target, "3") == 0){
         livingroom_fan_control(param, value);
-    }else if(strcmp(target, "15") == 0){
+    }else if(strcmp(target, "8") == 0){
         livingroom_fire_alarm_control(value);
     }else if(strcmp(target, "16") == 0){            //空气净化器 TODO修改ID
         livingroom_WaterPump_control(param, value);

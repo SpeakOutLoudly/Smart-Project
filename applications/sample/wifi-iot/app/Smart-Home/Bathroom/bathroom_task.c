@@ -28,7 +28,8 @@
 static int bathroom_state = 0;
 static int bathroom_fan_state = 0;
 static int bathroom_light_state = 0;
-static int fan_level = 1;
+static int fan_level = 0;
+
 
 static int Control_Status_Light = 0;  // 0:自动模式, 1:待执行手动操作, 2:手动模式(已执行)
 static char *Control_Value_Light = "OFF";
@@ -117,7 +118,7 @@ static void bathroom_control_set_light(char *value)
         PwmStop(WIFI_IOT_PWM_PORT_PWM2);
         PwmStop(WIFI_IOT_PWM_PORT_PWM3);
         bathroom_light_state = 0;
-        // 移除这行：Control_Status_Light = 0; 让手动控制持续有效
+        Control_Status_Light = 0;
     }
     else{
         printf("无效的灯光控制值: %s\n", value);
@@ -145,16 +146,6 @@ static void bathroom_control_set_fan(char *value)
     }
 }
 
-// 重置为自动模式的函数
-static void reset_to_auto_mode(char *value) {
-    if (strcmp(value, "LIGHT") == 0) {
-        Control_Status_Light = 0;
-        printf("灯光已重置为自动模式\n");
-    } else {
-        printf("reset_to_auto_mode: 未知设备类型 %s\n", value);
-    }
-}
-
 /*
  * 硬件主要逻辑入口
  */
@@ -170,7 +161,6 @@ void bathroom_entry(void *arg){
             // 有待执行的手动操作
             printf("灯光进入手动模式\n");
             bathroom_control_set_light(Control_Value_Light);
-            Control_Status_Light = 2; // 标记为已执行手动操作
         } else if (Control_Status_Light == 0) {
             // 自动模式：读取人体红外传感器
             GpioGetInputVal(WIFI_IOT_IO_NAME_GPIO_7, &rel);
@@ -264,12 +254,6 @@ void Hardware_Control(char *target, char *param, char *value) {
         Control_Status_Light = 1;
         Control_Value_Light = value;
     }
-    else if (strcmp(target, "LIGHT") == 0 && strcmp(param, "MODE") == 0) {
-        reset_to_auto_mode(value);
-    }
-    else if (strcmp(target, "STATUS") == 0) {
-        Status_Query();
-    }
     else {
         printf("hardware_control: 未知目标设备 %s\n", target);
     }
@@ -277,20 +261,7 @@ void Hardware_Control(char *target, char *param, char *value) {
 
 // ==================== 硬件外部查询接口 ====================
 
-void Status_Query(void) {            //TODO：采用JSON形式发送，注意接口文档
-    printf("执行状态查询\n");
-    printf("bathroom_light_state: %d\n", bathroom_light_state);
-    printf("bathroom_fan_state: %d\n", bathroom_fan_state);
-}
 int Query_Room_Status(void){
     return bathroom_state;
 }
-int Query_Light_Status(void){
-    return bathroom_light_state;
-}
-int Query_Fan_Status(void){
-    return bathroom_fan_state;
-}
-int Query_Fan_Level(void){
-    return fan_level;
-}
+

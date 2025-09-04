@@ -12,10 +12,7 @@
  * Query_Device_Status
  */
 int Query_Room_Status(void);
-int Query_Light_Status(void);
-int Query_Fan_Status(void);
-int Query_Fan_Level(void);
-void Status_Query(void);
+
 // ==================== 系统控制接口 ====================
 
 /**

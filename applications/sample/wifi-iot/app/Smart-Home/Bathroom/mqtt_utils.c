@@ -171,26 +171,9 @@ int mqtt_connect(void){
         // 构造状态数据（JSON格式）
 
         int bathroom_state = Query_Room_Status();
-        int bathroom_light_state = Query_Light_Status();
-        int bathroom_fan_state = Query_Fan_Status();
-        int fan_level = Query_Fan_Level();
-
         //TODO：增加消息发布函数，注意修改设备ID
-        publish_param(mysock, buf, buflen, payload, sizeof(payload), topicString, 1, bathroom_state, "bathroom_state");
-        publish_param(mysock, buf, buflen, payload, sizeof(payload), topicString, 2, bathroom_light_state, "bathroom_light_state");
-        publish_param(mysock, buf, buflen, payload, sizeof(payload), topicString, 3, bathroom_fan_state, "bathroom_fan_state");
-        publish_param(mysock, buf, buflen, payload, sizeof(payload), topicString, 4, fan_level, "fan_level");
-/*
-        snprintf(payload, sizeof(payload), 
-                "{\"bathroom_state\":%d,\"bathroom_light_state\":%d,\"bathroom_fan_state\":%d,\"fan_level\":%d}", 
-                bathroom_state, bathroom_light_state, bathroom_fan_state, fan_level);
-        payloadlen = strlen(payload);
+        publish_param(mysock, buf, buflen, payload, sizeof(payload), topicString, 1, bathroom_state, "infraredRay", "bathroom_state");
 
-        len = MQTTSerialize_publish(buf, buflen, 0, 0, 0, 0, topicString, 
-                                  (unsigned char*)payload, payloadlen);
-        rc = transport_sendPacketBuffer(mysock, buf, len);
-        
-        printf("发布状态: %s\n", payload);*/
         usleep(5000000);  // 5秒发布一次状态
     }
 

@@ -172,7 +172,7 @@ int mqtt_connect(void){
 
         int bathroom_state = Query_Room_Status();
         //TODO：增加消息发布函数，注意修改设备ID
-        publish_param(mysock, buf, buflen, payload, sizeof(payload), topicString, 1, bathroom_state, "infraredRay", "bathroom_state");
+        publish_param(mysock, buf, buflen, payload, sizeof(payload), topicString, 7, bathroom_state, "infraredRay", "bathroom_state");
 
         usleep(5000000);  // 5秒发布一次状态
     }

@@ -246,10 +246,10 @@ void Hardware_Control(char *target, char *param, char *value) {
     printf("执行硬件控制 - 目标: %s, 参数: %s, 值: %s\n", target, param, value);
 
     // 使用字符串比较来判断目标设备类型
-    if (strcmp(target, "FAN") == 0) {
+    if (strcmp(target, "14") == 0) {
         bathroom_control_set_fan(value);
     }
-    else if (strcmp(target, "LIGHT") == 0 && strcmp(param, "BRIGHTNESS") == 0) {
+    else if (strcmp(target, "11") == 0 && strcmp(param, "BRIGHTNESS") == 0) {
 
         Control_Status_Light = 1;
         Control_Value_Light = value;

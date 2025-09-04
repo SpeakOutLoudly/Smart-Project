@@ -58,7 +58,7 @@ int json_parse_and_control(unsigned char *payload_in, unsigned int payload_len) 
     
     // 获取target字段
     target_item = cJSON_GetObjectItem(root, "target");
-    if (target_item == NULL || !cJSON_IsNumber(target_item)) {
+    if (target_item == NULL || !cJSON_IsString(target_item)) {
         printf("json_parse_and_control: 未找到'target'字段或类型错误\n");
         goto cleanup;
     }

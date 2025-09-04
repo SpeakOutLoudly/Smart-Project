@@ -15,7 +15,7 @@
 float Query_Temperature(void);
 float Query_Humidity(void);
 int Query_Gas_Sensor_Value(void);
-
+int Query_Fire_Sensor_Value(void);
 // ==================== 系统控制接口 ====================
 
 /**

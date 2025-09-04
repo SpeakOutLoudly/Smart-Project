@@ -34,7 +34,7 @@ int mqtt_connect(void)
 	int len = 0;
 	// char *host = "geyingzhen.xicp.net";
 	// int port = 48346;
-	char *host = "192.168.50.91"; // 1、MQTT服务器的IP地址
+	char *host = "47.108.220.55"; // 1、MQTT服务器的IP地址
 	int port = 1883;
 
 	mysock = transport_open(host, port);

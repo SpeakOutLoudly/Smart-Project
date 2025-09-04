@@ -68,13 +68,12 @@ static void livingroom_WaterPump_control(char *param, char *value);
 
 static int livingroom_fan_state = 0;
 static int livingroom_light_state = 0;
-static int livingroom_fire_status = 0;
 static int livingroom_alarm_status = 0;
 static int livingroom_WaterPump_state = 0;
 static int livingroom_WaterPump_level = 0;
 static int fan_level = 0;
 
-
+static int fire_sensor_value = 0;
 static int gas_sensor_value = 0;
 static float temperature = 0.0f;
 static float humidity = 0.0f;
@@ -106,6 +105,10 @@ static void Init_Aht20_GPIO(void){
     I2cInit(AHT20_I2C_IDX,AHT20_BAUDRATE);
 }
 
+static void Init_Fire_Sensor_GPIO(void){
+    IoSetFunc(WIFI_IOT_IO_NAME_GPIO_5, WIFI_IOT_IO_FUNC_GPIO_5_GPIO);
+    GpioSetDir(WIFI_IOT_IO_NAME_GPIO_5, WIFI_IOT_GPIO_DIR_IN);
+}
 //水泵引脚初始化
 static void Init_WaterPump_GPIO(void){
     //速率控制
@@ -145,6 +148,7 @@ static void livingroom_init(void *arg){
     Init_Light_GPIO();
     Init_Fan_GPIO();
     Init_Firesensor_GPIO();
+    Init_Fire_Sensor_GPIO();
     Init_Beeper_GPIO();
     Init_Aht20_GPIO();
     Init_WaterPump_GPIO();
@@ -171,7 +175,6 @@ static void livingroom_init(void *arg){
         printf("temp: %.2f,  humi: %.2f\n", temperature, humidity);
     }
 }
-
 /**
  * @brief 读取天然气传感器数据
  */
@@ -191,9 +194,8 @@ static void livingroom_read_gas_sensor(void){
 static void livingroom_read_fire_sensor(void){
     WifiIotGpioValue value;
     GpioGetInputVal(WIFI_IOT_IO_NAME_GPIO_5, &value); //获取火焰状态,0表示探测到火焰，1表示未探测到
-
     //获取到的值转化为火灾状态
-    livingroom_fire_status = value ? 0 : 1;
+    fire_sensor_value = value ? 0 : 1;
 }
 
 // ==================== 硬件主要逻辑入口 ====================
@@ -251,7 +253,9 @@ float Query_Humidity(void){
 int Query_Gas_Sensor_Value(void){
     return gas_sensor_value;
 }
-
+int Query_Fire_Sensor_Value(void){
+    return fire_sensor_value;
+}
 
 // ==================== 系统控制接口 ====================
 

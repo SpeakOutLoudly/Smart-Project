@@ -20,10 +20,10 @@ lite_component("app") {
         # "code_v2.0/chapter_05:ColorfulLight_Demo",
         # "code_v2.0/chapter_08:wifi_demo",
         # "code_v2.0/chapter_06:Sensor_demo",
-        "code_v2.0/fire:Fire",
+        # "code_v2.0/fire:Fire",
         # "Smart-Home/Bathroom:Smart_bathroom",
         # "Smart-Home/LivingRoom:Smart_livingroom",
-        # "Smart-Home/Kitchen:Smart_kitchen",
+        "Smart-Home/Kitchen:Smart_kitchen",
         # "Smart-Home/Bedroom:Smart_bedroom",
     ]
 }

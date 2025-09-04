@@ -84,7 +84,7 @@ int mqtt_connect(void){
     int len = 0;
 
     // MQTT服务器配置 - 使用公共EMQX服务器
-    char *host = "192.168.50.82";  // 可改为您的MQTT服务器地址
+    char *host = "47.108.220.55";  // 可改为您的MQTT服务器地址
     int port = 1883;
 
     printf("尝试连接MQTT服务器: %s:%d\n", host, port);
@@ -175,6 +175,7 @@ int mqtt_connect(void){
         int temperature = Query_Temperature();
         int humidity = Query_Humidity();
         int gas_sensor_value = Query_Gas_Sensor_Value();
+        int fire_sensor_value = Query_Fire_Sensor_Value();
 
         publish_param(mysock, buf, buflen, payload, sizeof(payload),
                       topicString, 4, temperature, "temperature", "temperature");
@@ -182,6 +183,8 @@ int mqtt_connect(void){
                       topicString, 4, humidity, "humidity", "humidity");
         publish_param(mysock, buf, buflen, payload, sizeof(payload),
                       topicString, 6, gas_sensor_value, "gas", "gas_sensor_value");
+        publish_param(mysock, buf, buflen, payload, sizeof(payload),
+                      topicString, 5, fire_sensor_value, "fire", "fire_sensor_value");
 /*
         snprintf(payload, sizeof(payload), 
                 "{\"deviceId\":9\"switch\":%d}", 

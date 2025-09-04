@@ -245,7 +245,9 @@ float Query_Humidity(void){
 int Query_gas_sensor_value(void){
     return gas_sensor_value;
 }
-
+int Query_Fire_Sensor_Value(void){
+    return kitchen_fire_status;
+}
 
 // ==================== 系统控制接口 ====================
 

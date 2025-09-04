@@ -84,7 +84,7 @@ int mqtt_connect(void){
     int len = 0;
 
     // MQTT服务器配置 - 使用公共EMQX服务器
-    char *host = "192.168.50.91";  // 可改为您的MQTT服务器地址
+    char *host = "47.108.220.55";  // 可改为您的MQTT服务器地址
     int port = 1883;
 
     printf("尝试连接MQTT服务器: %s:%d\n", host, port);
